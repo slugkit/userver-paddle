@@ -82,4 +82,20 @@ auto ProductCache::Update(
   this->Set(std::move(data_cache));
 }
 
+auto ProductCache::AddProduct(const products::Product &product) -> void {
+  auto existing_data = this->Get();
+  auto new_data = std::make_unique<DataType>(*existing_data);
+  auto id = product.id;
+  new_data->insert_or_assign(std::move(id), product);
+  this->Set(std::move(new_data));
+}
+
+auto ProductCache::UpdateProduct(const products::Product &product) -> void {
+  auto existing_data = this->Get();
+  auto new_data = std::make_unique<DataType>(*existing_data);
+  auto id = product.id;
+  new_data->insert_or_assign(std::move(id), product);
+  this->Set(std::move(new_data));
+}
+
 } // namespace paddle::components
