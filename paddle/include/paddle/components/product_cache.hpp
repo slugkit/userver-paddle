@@ -19,11 +19,17 @@ public:
   using BaseType = userver::components::CachingComponentBase<
       std::unordered_map<ProductId, products::Product>>;
 
+public:
+  static constexpr auto kName = "paddle-product-cache";
+
   ProductCache(const userver::components::ComponentConfig &config,
                const userver::components::ComponentContext &context);
   ~ProductCache() override;
 
   auto GetStaticConfigSchema() -> userver::yaml_config::Schema;
+
+  auto AddProduct(const products::Product &product) -> void;
+  auto UpdateProduct(const products::Product &product) -> void;
 
 private:
   auto

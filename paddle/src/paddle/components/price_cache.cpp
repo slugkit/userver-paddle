@@ -84,4 +84,20 @@ auto PriceCache::Update(
   this->Set(std::move(data_cache));
 }
 
+auto PriceCache::AddPrice(const prices::Price &price) -> void {
+  auto existing_data = this->Get();
+  auto new_data = std::make_unique<DataType>(*existing_data);
+  auto id = price.id;
+  new_data->insert_or_assign(std::move(id), price);
+  this->Set(std::move(new_data));
+}
+
+auto PriceCache::UpdatePrice(const prices::Price &price) -> void {
+  auto existing_data = this->Get();
+  auto new_data = std::make_unique<DataType>(*existing_data);
+  auto id = price.id;
+  new_data->insert_or_assign(std::move(id), price);
+  this->Set(std::move(new_data));
+}
+
 } // namespace paddle::components

@@ -27,6 +27,10 @@ public:
 
   static auto GetStaticConfigSchema() -> userver::yaml_config::Schema;
 
+  auto AddPrice(const prices::Price &price) -> void;
+  auto UpdatePrice(const prices::Price &price) -> void;
+  auto RemovePrice(const prices::Price &price) -> void;
+
 private:
   auto
   Update(userver::cache::UpdateType type,
