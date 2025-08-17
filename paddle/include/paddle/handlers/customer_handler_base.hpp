@@ -1,0 +1,33 @@
+#pragma once
+
+#include <paddle/types/events.hpp>
+#include <paddle/types/formats.hpp>
+#include <paddle/types/fwd.hpp>
+
+#include <userver/components/component_base.hpp>
+
+namespace paddle::handlers {
+
+/// This is a base component for handling customer events
+/// By default does nothing, but can be overridden to handle events
+class CustomerHandlerBase : public userver::components::ComponentBase {
+public:
+    using BaseType = userver::components::ComponentBase;
+    using EventType = events::Event<customers::Customer>;
+    constexpr static auto kEventCategory = events::EventCategory::kCustomer;
+
+    using BaseType::BaseType;
+
+    auto HandleEvent(const JSON& request_json, EventType&& event) const -> void;
+
+    auto HandleCreated(EventType&& event) const -> void;
+    auto HandleImported(EventType&& event) const -> void;
+    auto HandleUpdated(EventType&& event) const -> void;
+
+private:
+    virtual auto DoHandleCreated(EventType&&) const -> void;
+    virtual auto DoHandleImported(EventType&&) const -> void;
+    virtual auto DoHandleUpdated(EventType&&) const -> void;
+};
+
+}  // namespace paddle::handlers
