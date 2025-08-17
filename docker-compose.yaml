@@ -1,0 +1,19 @@
+name: "userver-paddle"
+
+services:
+  # devbox is a container that runs the devcontainer
+  # it contains all necessary tools for development
+  # and compiled userver binaries and all the dependencies
+  devbox:
+    image: "ghcr.io/slugkit/userver-build:latest"
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/home/user/workspace
+      - /etc/localtime:/etc/localtime:ro
+    command: sleep infinity
+    environment:
+      - TZ=UTC
+    privileged: true
+    security_opt:
+      - seccomp=unconfined

@@ -1,0 +1,95 @@
+components_manager:
+    task_processors:                  # Task processor is an executor for coroutine tasks
+
+        main-task-processor:          # Make a task processor for CPU-bound couroutine tasks.
+            worker_threads: $worker-threads         # Process tasks in 4 threads.
+
+        fs-task-processor:            # Make a separate task processor for filesystem bound tasks.
+            worker_threads: $worker-fs-threads
+
+    default_task_processor: main-task-processor
+
+    components:                       # Configuring components that were registered via component_list
+        server:
+            listener:                 # configuring the main listening socket...
+                address: $server-address
+                port: $server-port            # ...to listen on this port and...
+                task_processor: main-task-processor    # ...process incoming requests on this task processor.
+
+        logging:
+            fs-task-processor: fs-task-processor
+            loggers:
+                default:
+                    file_path: '@stderr'
+                    level: $logger-level
+                    overflow_behavior: discard  # Drop logs if the system is too busy to write them down.
+                    format: json
+        # Components
+        http-client:
+            load-enabled: true
+            fs-task-processor: fs-task-processor
+
+        dns-client:
+            fs-task-processor: fs-task-processor
+
+        tests-control:
+            load-enabled: $is-testing
+            path: /tests/{action}
+            method: POST
+            task_processor: main-task-processor
+
+        paddle-client:
+            base_url: https://sandbox-api.paddle.com
+            api_key: $paddle-api-key
+            api_version: 1
+
+        webhook-secret-cache:
+            update-interval: 60s
+            update-types: only-full
+            webhook_host: $paddle_webhook_host
+
+        handler-address:
+            load-enabled: true
+
+        handler-api-key:
+            load-enabled: true
+
+        handler-business:
+            load-enabled: true
+
+        handler-client-token:
+            load-enabled: true
+        
+        handler-customer:
+            load-enabled: true
+
+        handler-payment-method:
+            load-enabled: true
+
+        handler-price:
+            load-enabled: true
+
+        handler-product:
+            load-enabled: true
+
+        handler-subscription:
+            load-enabled: true
+
+        handler-transaction:
+            load-enabled: true
+
+        handler-webhook:
+            path: /webhook
+            method: POST
+            secrets_cache: webhook-secret-cache
+            run_in_background: true
+            address: handler-address
+            api-key: handler-api-key
+            business: handler-business
+            client-token: handler-client-token
+            customer: handler-customer
+            payment-method: handler-payment-method
+            price: handler-price
+            product: handler-product
+            subscription: handler-subscription
+            transaction: handler-transaction
