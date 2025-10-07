@@ -18,6 +18,15 @@ struct Customer {
     Timestamp created_at;
     Timestamp updated_at;
     JSON import_meta;
+
+    template <typename T>
+    auto GetCustomData() const -> T {
+        return Parse(custom_data, userver::formats::parse::To<T>{});
+    }
+    template <typename T>
+    auto SetCustomData(const T& custom_data) -> void {
+        this->custom_data = Serialize(custom_data, userver::formats::serialize::To<JSON>{});
+    }
 };
 
 struct Address {
@@ -35,6 +44,15 @@ struct Address {
     Timestamp created_at;
     Timestamp updated_at;
     JSON import_meta;
+
+    template <typename T>
+    auto GetCustomData() const -> T {
+        return Parse(custom_data, userver::formats::parse::To<T>{});
+    }
+    template <typename T>
+    auto SetCustomData(const T& custom_data) -> void {
+        this->custom_data = Serialize(custom_data, userver::formats::serialize::To<JSON>{});
+    }
 };
 
 struct Contact {
@@ -54,6 +72,15 @@ struct Business {
     Timestamp updated_at;
     JSON custom_data;
     JSON import_meta;
+
+    template <typename T>
+    auto GetCustomData() const -> T {
+        return Parse(custom_data, userver::formats::parse::To<T>{});
+    }
+    template <typename T>
+    auto SetCustomData(const T& custom_data) -> void {
+        this->custom_data = Serialize(custom_data, userver::formats::serialize::To<JSON>{});
+    }
 };
 
 }  // namespace paddle::customers

@@ -18,6 +18,7 @@ class WebhookSecretCache final
     : public userver::components::CachingComponentBase<std::unordered_map<std::string, std::string>> {
 public:
     using BaseType = userver::components::CachingComponentBase<std::unordered_map<std::string, std::string>>;
+    static constexpr auto kName = "paddle-webhook-secret-cache";
 
 public:
     WebhookSecretCache(

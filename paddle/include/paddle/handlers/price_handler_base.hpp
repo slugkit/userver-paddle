@@ -3,6 +3,7 @@
 #include <paddle/types/events.hpp>
 #include <paddle/types/formats.hpp>
 #include <paddle/types/fwd.hpp>
+#include <paddle/types/price.hpp>
 
 #include <userver/components/component_base.hpp>
 #include <userver/utils/fast_pimpl.hpp>
@@ -12,7 +13,8 @@ namespace paddle::handlers {
 class PriceHandlerBase : public userver::components::ComponentBase {
 public:
     using BaseType = userver::components::ComponentBase;
-    using EventType = events::Event<prices::Price>;
+    using PriceType = prices::JsonPrice;
+    using EventType = events::Event<PriceType>;
     constexpr static auto kEventCategory = events::EventCategory::kPrice;
 
     PriceHandlerBase(
@@ -35,7 +37,7 @@ private:
     virtual auto DoHandleUpdated(EventType&&) const -> void;
 
 private:
-    constexpr static auto kImplSize = 8UL;
+    constexpr static auto kImplSize = 48UL;
     constexpr static auto kImplAlign = 8UL;
     struct Impl;
     userver::utils::FastPimpl<Impl, kImplSize, kImplAlign> impl_;

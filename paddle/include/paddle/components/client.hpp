@@ -1,8 +1,9 @@
 #pragma once
 
 #include <paddle/types/notification_settings.hpp>
-// #include <paddle/types/price.hpp>
-// #include <paddle/types/product.hpp>
+#include <paddle/types/price.hpp>
+#include <paddle/types/price_preview.hpp>
+#include <paddle/types/product.hpp>
 // #include <paddle/types/subscriptions.hpp>
 #include <paddle/types/fwd.hpp>
 
@@ -24,7 +25,8 @@ namespace paddle::components {
 /// - api_key: API key for the Paddle API
 /// - api_version: API version to use, default is "1"
 /// - webhook_host: Hostname of the webhook server
-/// - webhooks: Webhooks mapping, the key is the handler name, the value is the webhook path
+/// - webhooks: Webhooks mapping, the key is the handler name, the value is the
+/// webhook path
 class Client final : public userver::components::ComponentBase {
 public:
     static constexpr std::int32_t kDefaultPerPage = 200;
@@ -44,17 +46,25 @@ public:
     [[nodiscard]] auto GetEvents(std::string_view cursor, std::int32_t per_page = kDefaultPerPage) const
         -> ResponseWithCursor<events::Event<JSON>>;
 
-    [[nodiscard]] auto GetAllProducts() const -> std::vector<products::Product>;
+    [[nodiscard]] auto GetAllProducts() const -> std::vector<products::JsonProduct>;
     [[nodiscard]] auto GetProducts(std::string_view cursor, std::int32_t per_page = kDefaultPerPage) const
-        -> ResponseWithCursor<products::Product>;
+        -> ResponseWithCursor<products::JsonProduct>;
 
-    [[nodiscard]] auto GetAllPrices() const -> std::vector<prices::Price>;
+    [[nodiscard]] auto GetAllPrices() const -> std::vector<prices::JsonPrice>;
     [[nodiscard]] auto GetPrices(std::string_view cursor, std::int32_t per_page = kDefaultPerPage) const
-        -> ResponseWithCursor<prices::Price>;
+        -> ResponseWithCursor<prices::JsonPrice>;
 
     [[nodiscard]] auto GetAllSubscriptions() const -> std::vector<subscriptions::Subscription>;
     [[nodiscard]] auto GetSubscriptions(std::string_view cursor, std::int32_t per_page = kDefaultPerPage) const
         -> ResponseWithCursor<subscriptions::Subscription>;
+
+    [[nodiscard]] auto GetPricePreview(const prices::PricePreviewRequest& request) const -> prices::JsonPricePreview;
+    template <typename ProductData, typename PriceData>
+    [[nodiscard]] auto GetPricePreview(const prices::PricePreviewRequest& request
+    ) const -> prices::PricePreviewTemplate<ProductData, PriceData> {
+        auto response = GetPricePreview(request);
+        return Convert(response, convert::To<prices::PricePreviewTemplate<ProductData, PriceData>>{});
+    }
 
 private:
     constexpr static auto kImplSize = 104UL;
