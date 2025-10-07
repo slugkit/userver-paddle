@@ -11,9 +11,10 @@
 
 namespace paddle::transactions {
 
-/// How proration was calculated for this item. Populated when a transaction is created from a subscription change,
-/// where `proration_billing_mode` was `prorated_immediately` or `prorated_next_billing_period`. Set automatically by
-/// Paddle.
+/// How proration was calculated for this item. Populated when a transaction is
+/// created from a subscription change, where `proration_billing_mode` was
+/// `prorated_immediately` or `prorated_next_billing_period`. Set automatically
+/// by Paddle.
 struct ItemProration {
     std::string rate;
     TimePeriod billing_period;
@@ -21,20 +22,22 @@ struct ItemProration {
 
 struct Item {
     OptionalPriceId price_id;
-    std::optional<prices::Price> price;
+    std::optional<prices::JsonPrice> price;
     std::int32_t quantity;
     std::optional<ItemProration> proration;
 };
 
-/// Breakdown of a charge in the lowest denomination of a currency (e.g. cents for USD).
-/// JSON contains strings, but we use integers for calculations.
+/// Breakdown of a charge in the lowest denomination of a currency (e.g. cents
+/// for USD). JSON contains strings, but we use integers for calculations.
 struct Totals {
-    /// Subtotal before discount, tax, and deductions. If an item, unit price multiplied by quantity.
+    /// Subtotal before discount, tax, and deductions. If an item, unit price
+    /// multiplied by quantity.
     std::int64_t subtotal;
     /// Total discount as a result of any discounts applied.
     //
-    // Except for percentage discounts, Paddle applies tax to discounts based on the line item `price.tax_mode`. If
-    // `price.tax_mode` for a line item is `internal`, Paddle removes tax from the discount applied.
+    // Except for percentage discounts, Paddle applies tax to discounts based on
+    // the line item `price.tax_mode`. If `price.tax_mode` for a line item is
+    // `internal`, Paddle removes tax from the discount applied.
     std::int64_t discount;
     /// Total tax on the subtotal.
     std::int64_t tax;
@@ -42,26 +45,29 @@ struct Totals {
     std::int64_t total;
 };
 
-/// Information about line items for this transaction. Different from transaction `items` as they include totals
-/// calculated by Paddle. Considered the source of truth for line item totals.
+/// Information about line items for this transaction. Different from
+/// transaction `items` as they include totals calculated by Paddle. Considered
+/// the source of truth for line item totals.
 struct LineItem {
     OptionalTransactionItemId id;
     PriceId price_id;
     /// Quantity of this transaction line item.
     std::int32_t quantity;
-    /// How proration was calculated for this item. Populated when a transaction is created from a subscription change,
-    /// where `proration_billing_mode` was `prorated_immediately` or `prorated_next_billing_period`. Set automatically
-    /// by Paddle.
+    /// How proration was calculated for this item. Populated when a transaction
+    /// is created from a subscription change, where `proration_billing_mode` was
+    /// `prorated_immediately` or `prorated_next_billing_period`. Set
+    /// automatically by Paddle.
     std::optional<ItemProration> proration;
     /// Rate used to calculate tax for this transaction line item.
     std::string tax_rate;
-    /// Breakdown of the charge for one unit in the lowest denomination of a currency (e.g. cents for USD).
+    /// Breakdown of the charge for one unit in the lowest denomination of a
+    /// currency (e.g. cents for USD).
     Totals unit_totals;
     /// Breakdown of the charge for this transaction line item.
     Totals totals;
-    /// Related product entity for this transaction line item price. Reflects the entity at the time it was added to the
-    /// transaction.
-    products::Product product;
+    /// Related product entity for this transaction line item price. Reflects the
+    /// entity at the time it was added to the transaction.
+    products::JsonProduct product;
 };
 
 /// List of tax rates applied for this transaction.
@@ -70,32 +76,36 @@ struct TaxRateUsed {
     Totals totals;
 };
 
-/// Breakdown of the total for a transaction. These numbers can be negative when dealing with subscription updates that
-/// result in credit.
-/// Numbers come in as strings.
+/// Breakdown of the total for a transaction. These numbers can be negative when
+/// dealing with subscription updates that result in credit. Numbers come in as
+/// strings.
 struct TransactionTotals {
-    /// Total credit applied to this transaction. This includes credits applied using a customer's credit balance and
-    /// adjustments to a `billed` transaction.
+    /// Total credit applied to this transaction. This includes credits applied
+    /// using a customer's credit balance and adjustments to a `billed`
+    /// transaction.
     std::int64_t credit;
-    /// Additional credit generated from negative `details.line_items`. This credit is added to the customer balance.
+    /// Additional credit generated from negative `details.line_items`. This
+    /// credit is added to the customer balance.
     std::int64_t credit_to_balance;
     /// Total due on a transaction after credits and any payments.
     std::int64_t balance;
     /// Total due on a transaction after credits but before any payments.
     std::int64_t grand_total;
-    /// Total fee taken by Paddle for this transaction. `null` until the transaction is `completed` and the fee is
-    /// processed.
+    /// Total fee taken by Paddle for this transaction. `null` until the
+    /// transaction is `completed` and the fee is processed.
     std::optional<std::int64_t> fee;
-    /// Total earnings for this transaction. This is the total minus the Paddle fee. `null` until the transaction is
-    /// `completed` and the fee is processed.
+    /// Total earnings for this transaction. This is the total minus the Paddle
+    /// fee. `null` until the transaction is `completed` and the fee is processed.
     std::optional<std::int64_t> earnings;
-    /// Three-letter ISO 4217 currency code of the currency used for this transaction.
+    /// Three-letter ISO 4217 currency code of the currency used for this
+    /// transaction.
     money::CurrencyCode currency_code;
 };
 
 /// Breakdown of the totals for a transaction after adjustments.
 struct TransactionTotalsAdjusted {
-    /// Subtotal before discount, tax, and deductions. If an item, unit price multiplied by quantity.
+    /// Subtotal before discount, tax, and deductions. If an item, unit price
+    /// multiplied by quantity.
     std::int64_t subtotal;
     /// Total tax on the subtotal.
     std::int64_t tax;
@@ -103,33 +113,37 @@ struct TransactionTotalsAdjusted {
     std::int64_t total;
     /// Total due after credits but before any payments.
     std::int64_t grand_total;
-    /// Total fee taken by Paddle for this transaction. `null` until the transaction is `completed` and the fee is
-    /// processed.
+    /// Total fee taken by Paddle for this transaction. `null` until the
+    /// transaction is `completed` and the fee is processed.
     std::optional<std::int64_t> fee;
-    /// Total earnings for this transaction. This is the total minus the Paddle fee. `null` until the transaction is
-    /// `completed` and the fee is processed.
+    /// Total earnings for this transaction. This is the total minus the Paddle
+    /// fee. `null` until the transaction is `completed` and the fee is processed.
     std::optional<std::int64_t> earnings;
-    /// Three-letter ISO 4217 currency code of the currency used for this transaction.
+    /// Three-letter ISO 4217 currency code of the currency used for this
+    /// transaction.
     money::CurrencyCode currency_code;
 };
 
-/// Breakdown of the payout total for a transaction. `null` until the transaction is `completed`. Returned in your
-/// payout currency.
+/// Breakdown of the payout total for a transaction. `null` until the
+/// transaction is `completed`. Returned in your payout currency.
 struct TransactionPayoutTotals {
     /// Total before tax and fees.
     std::int64_t subtotal;
     /// Total discount as a result of any discounts applied.
-    /// Except for percentage discounts, Paddle applies tax to discounts based on the line item `price.tax_mode`. If
-    /// `price.tax_mode` for a line item is `internal`, Paddle removes tax from the discount applied.
+    /// Except for percentage discounts, Paddle applies tax to discounts based on
+    /// the line item `price.tax_mode`. If `price.tax_mode` for a line item is
+    /// `internal`, Paddle removes tax from the discount applied.
     std::int64_t discount;
     /// Total tax on the subtotal.
     std::int64_t tax;
     /// Total amount after tax.
     std::int64_t total;
-    /// Total credit applied to this transaction. This includes credits applied using a customer's credit balance and
-    /// adjustments to a `billed` transaction.
+    /// Total credit applied to this transaction. This includes credits applied
+    /// using a customer's credit balance and adjustments to a `billed`
+    /// transaction.
     std::int64_t credit;
-    /// Additional credit generated from negative `details.line_items`. This credit is added to the customer balance.
+    /// Additional credit generated from negative `details.line_items`. This
+    /// credit is added to the customer balance.
     std::int64_t credit_to_balance;
     /// Total due on a transaction after credits and any payments.
     std::int64_t balance;
@@ -139,8 +153,9 @@ struct TransactionPayoutTotals {
     std::optional<std::int64_t> fee;
     /// Total earnings for this payout. This is the subtotal minus the Paddle fee.
     std::optional<std::int64_t> earnings;
-    /// Three-letter ISO 4217 currency code used for the payout for this transaction. If your primary currency has
-    /// changed, this reflects the primary currency at the time the transaction was billed.
+    /// Three-letter ISO 4217 currency code used for the payout for this
+    /// transaction. If your primary currency has changed, this reflects the
+    /// primary currency at the time the transaction was billed.
     money::CurrencyCode currency_code;
 };
 
@@ -148,12 +163,13 @@ struct TransactionPayoutTotals {
 struct ChargebackFee {
     /// Chargeback fee converted into the payout currency.
     std::int64_t amount;
-    /// Chargeback fee before conversion to the payout currency. `null` when the chargeback fee is the same as the
-    /// payout currency.
+    /// Chargeback fee before conversion to the payout currency. `null` when the
+    /// chargeback fee is the same as the payout currency.
     std::optional<money::Money> original;
 };
 
-/// Breakdown of the payout total for a transaction after adjustments. `null` until the transaction is `completed`.
+/// Breakdown of the payout total for a transaction after adjustments. `null`
+/// until the transaction is `completed`.
 struct TransactionPayoutTotalsAdjusted {
     /// Total before tax and fees.
     std::int64_t subtotal;
@@ -165,26 +181,31 @@ struct TransactionPayoutTotalsAdjusted {
     std::int64_t fee;
     /// Details of any chargeback fees incurred for this transaction.
     ChargebackFee chargeback_fee;
-    /// Total earnings for this payout. This is the subtotal minus the Paddle fee, excluding chargeback fees.
+    /// Total earnings for this payout. This is the subtotal minus the Paddle fee,
+    /// excluding chargeback fees.
     std::int64_t earnings;
-    /// Three-letter ISO 4217 currency code used for the payout for this transaction. If your primary currency has
-    /// changed, this reflects the primary currency at the time the transaction was billed.
+    /// Three-letter ISO 4217 currency code used for the payout for this
+    /// transaction. If your primary currency has changed, this reflects the
+    /// primary currency at the time the transaction was billed.
     money::CurrencyCode currency_code;
 };
 
-/// Calculated totals for a transaction, including proration, discounts, tax, and currency conversion. Considered the
-/// source of truth for totals on a transaction.
+/// Calculated totals for a transaction, including proration, discounts, tax,
+/// and currency conversion. Considered the source of truth for totals on a
+/// transaction.
 struct Details {
     std::vector<TaxRateUsed> tax_rates_used;
     TransactionTotals totals;
     std::optional<TransactionTotalsAdjusted> adjusted_totals;
-    /// Breakdown of the payout total for a transaction. `null` until the transaction is `completed`. Returned in your
-    /// payout currency.
+    /// Breakdown of the payout total for a transaction. `null` until the
+    /// transaction is `completed`. Returned in your payout currency.
     std::optional<TransactionPayoutTotals> payout_totals;
-    /// Breakdown of the payout total for a transaction after adjustments. `null` until the transaction is `completed`.
+    /// Breakdown of the payout total for a transaction after adjustments. `null`
+    /// until the transaction is `completed`.
     std::optional<TransactionPayoutTotalsAdjusted> payout_totals_adjusted;
-    /// Information about line items for this transaction. Different from transaction `items` as they include totals
-    /// calculated by Paddle. Considered the source of truth for line item totals.
+    /// Information about line items for this transaction. Different from
+    /// transaction `items` as they include totals calculated by Paddle.
+    /// Considered the source of truth for line item totals.
     std::vector<LineItem> line_items;
 };
 
@@ -198,13 +219,14 @@ struct PaymentMethod {
 
 struct PaymentAttempt {
     PaymentAttemptId payment_attempt_id;
-    /// UUID for the stored payment method used for this payment attempt. Deprecated - use `payment_method_id` instead.
-    /// but the field is still present for backwards compatibility.
+    /// UUID for the stored payment method used for this payment attempt.
+    /// Deprecated - use `payment_method_id` instead. but the field is still
+    /// present for backwards compatibility.
     boost::uuids::uuid stored_payment_method_id;
     /// Paddle ID of the payment method used for this payment attempt.
     OptionalPaymentMethodId payment_method_id;
-    /// Amount for collection in the lowest denomination of a currency (e.g. cents for USD).
-    /// string in json.
+    /// Amount for collection in the lowest denomination of a currency (e.g. cents
+    /// for USD). string in json.
     std::int64_t amount;
     /// Status of the payment attempt.
     PaymentAttemptStatus status;
@@ -286,7 +308,7 @@ Item Parse(const Value& value, userver::formats::parse::To<Item>) {
         item.price_id = value["price_id"].template As<OptionalPriceId>();
     }
     if (value.HasMember("price")) {
-        item.price = value["price"].template As<std::optional<prices::Price>>();
+        item.price = value["price"].template As<std::optional<prices::JsonPrice>>();
     }
     item.quantity = value["quantity"].template As<std::int32_t>();
     if (value.HasMember("proration")) {
@@ -343,7 +365,7 @@ LineItem Parse(const Value& value, userver::formats::parse::To<LineItem>) {
     line_item.tax_rate = value["tax_rate"].template As<std::string>();
     line_item.unit_totals = value["unit_totals"].template As<Totals>();
     line_item.totals = value["totals"].template As<Totals>();
-    line_item.product = value["product"].template As<products::Product>();
+    line_item.product = value["product"].template As<products::JsonProduct>();
     return line_item;
 }
 

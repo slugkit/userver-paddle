@@ -3,7 +3,10 @@
 namespace paddle {
 
 namespace products {
-struct Product;
+
+template <typename T>
+struct ProductTemplate;
+
 }  // namespace products
 
 namespace money {
@@ -12,8 +15,12 @@ struct SavedPaymentMethod;
 }  // namespace money
 
 namespace prices {
-struct Price;
+
+template <typename T>
+struct PriceTemplate;
+
 struct Adjustment;
+
 }  // namespace prices
 
 namespace customers {

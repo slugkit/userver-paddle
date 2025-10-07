@@ -1,5 +1,6 @@
 #pragma once
 
+#include <paddle/types/convert.hpp>
 #include <paddle/types/duration.hpp>
 #include <paddle/types/money.hpp>
 #include <paddle/types/response.hpp>
@@ -19,7 +20,8 @@ struct PriceQuantity {
     std::int32_t maximum;
 };
 
-struct Price {
+template <typename CustomData = JSON>
+struct PriceTemplate {
     using IdType = PriceId;
 
     PriceId id;
@@ -34,13 +36,16 @@ struct Price {
     std::vector<PriceOverride> unit_price_overrides;
     PriceQuantity quantity;
     Status status;
-    JSON custom_data;
+    CustomData custom_data;
     // there's import_meta field, but we don't care about it
     Timestamp created_at;
     Timestamp updated_at;
 };
 
-using PriceResponse = Response<Price, MetaPaginated>;
+using JsonPrice = PriceTemplate<>;
+
+template <typename CustomData = JSON>
+using PriceResponse = Response<PriceTemplate<CustomData>, MetaPaginated>;
 
 }  // namespace paddle::prices
 
@@ -78,8 +83,8 @@ PriceQuantity Parse(const Value& value, userver::formats::parse::To<PriceQuantit
     return quantity;
 }
 
-template <typename Format>
-Format Serialize(const Price& price, userver::formats::serialize::To<Format>) {
+template <typename Format, typename CustomData>
+Format Serialize(const PriceTemplate<CustomData>& price, userver::formats::serialize::To<Format>) {
     typename Format::Builder builder;
     builder["id"] = price.id;
     builder["product_id"] = price.product_id;
@@ -99,9 +104,9 @@ Format Serialize(const Price& price, userver::formats::serialize::To<Format>) {
     return builder.ExtractValue();
 }
 
-template <typename Value>
-Price Parse(const Value& value, userver::formats::parse::To<Price>) {
-    Price price;
+template <typename Value, typename CustomData>
+PriceTemplate<CustomData> Parse(const Value& value, userver::formats::parse::To<PriceTemplate<CustomData>>) {
+    PriceTemplate<CustomData> price;
     price.id = value["id"].template As<PriceId>();
     price.product_id = value["product_id"].template As<ProductId>();
     price.description = value["description"].template As<std::string>();
@@ -118,10 +123,100 @@ Price Parse(const Value& value, userver::formats::parse::To<Price>) {
     price.unit_price_overrides = value["unit_price_overrides"].template As<std::vector<PriceOverride>>();
     price.quantity = value["quantity"].template As<PriceQuantity>();
     price.status = value["status"].template As<Status>();
-    price.custom_data = value["custom_data"].template As<userver::formats::json::Value>();
+    price.custom_data = value["custom_data"].template As<CustomData>();
     price.created_at = value["created_at"].template As<Timestamp>();
     price.updated_at = value["updated_at"].template As<Timestamp>();
     return price;
+}
+
+namespace impl {
+
+template <typename From, typename To>
+struct PriceConverter;
+
+// Identity converter
+template <typename PricePayload>
+struct PriceConverter<PricePayload, PricePayload> {
+    static auto Convert(const PriceTemplate<PricePayload>& price) -> PriceTemplate<PricePayload> {
+        return price;
+    }
+
+    static auto Convert(PriceTemplate<PricePayload>&& price) -> PriceTemplate<PricePayload> {
+        return std::move(price);
+    }
+};
+
+// Serializing converter
+template <typename From, FormatType To>
+requires SerializableTo<From, To>
+struct PriceConverter<From, To> {
+    static auto Convert(const PriceTemplate<From>& price) -> PriceTemplate<To> {
+        PriceTemplate<To> result;
+        result.id = price.id;
+        result.product_id = price.product_id;
+        result.description = price.description;
+        result.type = price.type;
+        result.billing_cycle = price.billing_cycle;
+        result.trial_period = price.trial_period;
+        result.tax_mode = price.tax_mode;
+        result.unit_price = price.unit_price;
+        result.unit_price_overrides = price.unit_price_overrides;
+        result.quantity = price.quantity;
+        result.status = price.status;
+        result.custom_data = Serialize(price.custom_data, userver::formats::serialize::To<To>{});
+        result.created_at = price.created_at;
+        result.updated_at = price.updated_at;
+        return result;
+    }
+};
+
+// Parsing converter
+template <FormatType From, typename To>
+requires ParseableFrom<To, From>
+struct PriceConverter<From, To> {
+    static auto Convert(const PriceTemplate<From>& price) -> PriceTemplate<To> {
+        auto custom_data = Parse(price.custom_data, userver::formats::parse::To<To>{});
+        PriceTemplate<To> result;
+        result.id = price.id;
+        result.product_id = price.product_id;
+        result.description = price.description;
+        result.type = price.type;
+        result.billing_cycle = price.billing_cycle;
+        result.trial_period = price.trial_period;
+        result.tax_mode = price.tax_mode;
+        result.unit_price = price.unit_price;
+        result.unit_price_overrides = price.unit_price_overrides;
+        result.quantity = price.quantity;
+        result.status = price.status;
+        result.custom_data = custom_data;
+        result.created_at = price.created_at;
+        result.updated_at = price.updated_at;
+        return result;
+    }
+};
+
+}  // namespace impl
+
+template <typename From, FormatType Format>
+requires SerializableTo<From, Format>
+auto Convert(const PriceTemplate<From>& price, convert::To<PriceTemplate<Format>>) -> PriceTemplate<Format> {
+    return impl::PriceConverter<From, Format>::Convert(price);
+}
+
+template <FormatType Format, typename To>
+requires ParseableFrom<To, Format>
+auto Convert(const PriceTemplate<Format>& price, convert::To<PriceTemplate<To>>) -> PriceTemplate<To> {
+    return impl::PriceConverter<Format, To>::Convert(price);
+}
+
+template <typename T>
+auto Convert(const PriceTemplate<T>& price, convert::To<PriceTemplate<T>>) -> PriceTemplate<T> {
+    return impl::PriceConverter<T, T>::Convert(price);
+}
+
+template <typename To, typename From>
+auto Convert(const PriceTemplate<From>& price) -> PriceTemplate<To> {
+    return Convert(price, convert::To<PriceTemplate<To>>{});
 }
 
 }  // namespace paddle::prices

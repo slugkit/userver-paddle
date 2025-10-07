@@ -21,9 +21,22 @@ struct Client::Impl {
 
     Impl(const userver::components::ComponentConfig& config, const userver::components::ComponentContext& context)
         : http_client(context.FindComponent<userver::components::HttpClient>())
-        , api_version(config["api_version"].As<std::string>("1"))
-        , base_url(config["base_url"].As<std::string>("https://api.paddle.com"))
-        , api_key("Bearer " + config["api_key"].As<std::string>()) {
+        , api_version(config["api-version"].As<std::string>("1"))
+        , base_url(config["base-url"].As<std::string>("https://api.paddle.com"))
+        , api_key("Bearer " + config["api-key"].As<std::string>()) {
+    }
+
+    void ThrowIfNotOk(
+        std::shared_ptr<userver::clients::http::Response> response,
+        std::string_view request_path,
+        std::string_view operation
+    ) const {
+        if (response->status_code() != 200) {
+            LOG_ERROR() << fmt::format("Failed to {} {}: {}", operation, request_path, response->status_code());
+            throw std::runtime_error(
+                fmt::format("Failed to {} {}: {}", operation, request_path, response->status_code())
+            );
+        }
     }
 
     template <typename T>
@@ -41,6 +54,7 @@ struct Client::Impl {
                                  })
                                  .timeout(std::chrono::seconds(30))
                                  .perform();
+        ThrowIfNotOk(http_response, url, "get paginated");
         auto body = http_response->body();
         auto json = userver::formats::json::FromString(body);
         auto response = json.As<Response<T, MetaPaginated>>();
@@ -54,6 +68,31 @@ struct Client::Impl {
         }
         auto next_cursor = response.meta.pagination.next.substr(pos + 6);
         return {std::move(response.data), next_cursor, response.meta.pagination.has_more};
+    }
+
+    template <typename Result, typename Request>
+    Result Post(std::string_view path, std::string_view operation, const Request& request) const {
+        auto request_body = Serialize(request, userver::formats::serialize::To<JSON>{});
+        auto request_path = fmt::format("{}/{}", base_url, path);
+        auto response = http_client.GetHttpClient()
+                            .CreateRequest()
+                            .post(request_path, ToString(request_body))
+                            .headers({
+                                {"Authorization", api_key},
+                                {"Paddle-Api-Version", api_version},
+                                {"Content-Type", "application/json"},
+                            })
+                            .timeout(std::chrono::seconds(30))
+                            .perform();
+        ThrowIfNotOk(response, request_path, operation);
+        auto body = response->body();
+        try {
+            auto result = userver::formats::json::FromString(body).template As<Result>();
+            return result;
+        } catch (const std::exception& e) {
+            LOG_ERROR() << fmt::format("Failed to parse response for {}: {}\n{}", operation, e.what(), body);
+            throw;
+        }
     }
 
     template <typename T>
@@ -87,22 +126,29 @@ struct Client::Impl {
         return GetPaginated<events::Event<JSON>>("events", cursor, per_page);
     }
 
-    ResponseWithCursor<products::Product> GetProducts(std::string_view cursor, std::int32_t per_page) const {
-        return GetPaginated<products::Product>("products", cursor, per_page);
+    ResponseWithCursor<products::JsonProduct> GetProducts(std::string_view cursor, std::int32_t per_page) const {
+        return GetPaginated<products::JsonProduct>("products", cursor, per_page);
     }
 
-    std::vector<products::Product> GetAllProducts() const {
+    std::vector<products::JsonProduct> GetAllProducts() const {
         LOG_INFO() << "Getting all products";
-        return GetAll<products::Product>("products", 200);
+        return GetAll<products::JsonProduct>("products", 200);
     }
 
-    ResponseWithCursor<prices::Price> GetPrices(std::string_view cursor, std::int32_t per_page) const {
-        return GetPaginated<prices::Price>("prices", cursor, per_page);
+    ResponseWithCursor<prices::JsonPrice> GetPrices(std::string_view cursor, std::int32_t per_page) const {
+        return GetPaginated<prices::JsonPrice>("prices", cursor, per_page);
     }
 
-    std::vector<prices::Price> GetAllPrices() const {
+    std::vector<prices::JsonPrice> GetAllPrices() const {
         LOG_INFO() << "Getting all prices";
-        return GetAll<prices::Price>("prices", 200);
+        return GetAll<prices::JsonPrice>("prices", 200);
+    }
+
+    prices::JsonPricePreview GetPricePreview(const prices::PricePreviewRequest& request) const {
+        return Post<SingleObjectResponse<prices::JsonPricePreview, Meta>>(
+                   "pricing-preview", "get price preview", request
+        )
+            .data;
     }
 };
 
@@ -114,21 +160,23 @@ Client::Client(const userver::components::ComponentConfig& config, const userver
 Client::~Client() = default;
 
 userver::yaml_config::Schema Client::GetStaticConfigSchema() {
-    return userver::yaml_config::MergeSchemas<userver::components::ComponentBase>(R"(
+    return userver::yaml_config::MergeSchemas<userver::components::ComponentBase>(
+        R"(
 type: object
 description: Paddle client component
 additionalProperties: false
 properties:
-    base_url:
+    base-url:
         type: string
         description: base URL of the Paddle API
-    api_key:
+    api-key:
         type: string
         description: API key for the Paddle API
-    api_version:
+    api-version:
         type: string
         description: API version to use
-    )");
+    )"
+    );
 }
 
 std::vector<NotificationSetting> Client::GetAllNotificationSettings() const {
@@ -148,20 +196,24 @@ ResponseWithCursor<events::Event<JSON>> Client::GetEvents(std::string_view curso
     return impl_->GetEvents(cursor, per_page);
 }
 
-std::vector<products::Product> Client::GetAllProducts() const {
+std::vector<products::JsonProduct> Client::GetAllProducts() const {
     return impl_->GetAllProducts();
 }
 
-ResponseWithCursor<products::Product> Client::GetProducts(std::string_view cursor, std::int32_t per_page) const {
+ResponseWithCursor<products::JsonProduct> Client::GetProducts(std::string_view cursor, std::int32_t per_page) const {
     return impl_->GetProducts(cursor, per_page);
 }
 
-std::vector<prices::Price> Client::GetAllPrices() const {
+std::vector<prices::JsonPrice> Client::GetAllPrices() const {
     return impl_->GetAllPrices();
 }
 
-ResponseWithCursor<prices::Price> Client::GetPrices(std::string_view cursor, std::int32_t per_page) const {
+ResponseWithCursor<prices::JsonPrice> Client::GetPrices(std::string_view cursor, std::int32_t per_page) const {
     return impl_->GetPrices(cursor, per_page);
+}
+
+prices::JsonPricePreview Client::GetPricePreview(const prices::PricePreviewRequest& request) const {
+    return impl_->GetPricePreview(request);
 }
 
 }  // namespace paddle::components

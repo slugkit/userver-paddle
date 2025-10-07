@@ -1,6 +1,7 @@
 #include <paddle/components/product_cache.hpp>
 
 #include <paddle/components/client.hpp>
+#include <paddle/components/scope_names.hpp>
 #include <paddle/types/product.hpp>
 
 #include <userver/components/component_config.hpp>
@@ -12,90 +13,27 @@
 #include <string>
 #include <unordered_map>
 
-namespace paddle::components {
+namespace paddle::components::impl {
 
-namespace {
-constexpr static auto kCopyStage = "copy";
-constexpr static auto kFetchStage = "fetch";
-constexpr static auto kParseStage = "parse";
-} // namespace
+auto ProductCacheBase::FetchProducts(userver::cache::UpdateStatisticsScope& stats_scope, ProductListCallback callback)
+    -> void {
+    std::string cursor;
+    bool has_more = true;
 
-struct ProductCache::Impl {
-  using DataType = ProductCache::DataType;
-  Client &client;
-
-  Impl(const userver::components::ComponentConfig &config,
-       const userver::components::ComponentContext &context)
-      : client(context.FindComponent<Client>(
-            config["client_name"].As<std::string>("paddle-client"))) {}
-
-  std::unique_ptr<DataType>
-  FetchProducts(userver::cache::UpdateStatisticsScope &stats_scope) const {
-    namespace tracing = userver::tracing;
-    auto scope =
-        tracing::Span::CurrentSpan().CreateScopeTime(std::string{kCopyStage});
-    auto data_cache = std::make_unique<DataType>();
-
-    scope.Reset(std::string{kFetchStage});
-
-    auto products = client.GetAllProducts();
-    LOG_INFO() << "Fetched " << products.size() << " products";
-    scope.Reset(std::string{kParseStage});
-    for (auto &product : products) {
-      auto id = product.id;
-      data_cache->insert_or_assign(std::move(id), std::move(product));
+    auto scope = userver::tracing::Span::CurrentSpan().CreateScopeTime(std::string{scope_names::kFetchStage});
+    auto doc_count = 0;
+    while (has_more) {
+        scope.Reset(std::string{scope_names::kFetchStage});
+        auto response = client_.GetProducts(cursor, per_page_);
+        auto products = std::get<0>(response);
+        cursor = std::get<1>(response);
+        has_more = std::get<2>(response);
+        doc_count += products.size();
+        scope.Reset(std::string{scope_names::kParseStage});
+        callback(std::move(products));
     }
-    LOG_INFO() << "Product cache updated with " << data_cache->size()
-               << " products";
-    // Update the cache
-    auto final_size = data_cache->size();
-    stats_scope.IncreaseDocumentsReadCount(products.size());
-    stats_scope.Finish(final_size);
-    return data_cache;
-  }
-};
-
-ProductCache::ProductCache(const userver::components::ComponentConfig &config,
-                           const userver::components::ComponentContext &context)
-    : BaseType(config, context), impl_(config, context) {}
-
-ProductCache::~ProductCache() = default;
-
-auto ProductCache::GetStaticConfigSchema() -> userver::yaml_config::Schema {
-  return userver::yaml_config::MergeSchemas<BaseType>(R"(
-type: object
-description: Product cache component
-additionalProperties: false
-properties:
-    client_name:
-        type: string
-        description: Component name for Paddle client (paddle-client by default)
-    )");
+    LOG_INFO() << "Fetched " << doc_count << " products";
+    stats_scope.IncreaseDocumentsReadCount(doc_count);
 }
 
-auto ProductCache::Update(
-    [[maybe_unused]] userver::cache::UpdateType type,
-    [[maybe_unused]] const std::chrono::system_clock::time_point &last_update,
-    [[maybe_unused]] const std::chrono::system_clock::time_point &now,
-    userver::cache::UpdateStatisticsScope &stats_scope) -> void {
-  auto data_cache = impl_->FetchProducts(stats_scope);
-  this->Set(std::move(data_cache));
-}
-
-auto ProductCache::AddProduct(const products::Product &product) -> void {
-  auto existing_data = this->Get();
-  auto new_data = std::make_unique<DataType>(*existing_data);
-  auto id = product.id;
-  new_data->insert_or_assign(std::move(id), product);
-  this->Set(std::move(new_data));
-}
-
-auto ProductCache::UpdateProduct(const products::Product &product) -> void {
-  auto existing_data = this->Get();
-  auto new_data = std::make_unique<DataType>(*existing_data);
-  auto id = product.id;
-  new_data->insert_or_assign(std::move(id), product);
-  this->Set(std::move(new_data));
-}
-
-} // namespace paddle::components
+}  // namespace paddle::components::impl

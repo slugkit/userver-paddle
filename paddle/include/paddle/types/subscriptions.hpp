@@ -26,6 +26,7 @@ struct ManagementUrls {
     std::string cancel;
 };
 
+// TODO template on custom data for price and product
 struct Item {
     SubscriptionItemStatus status;
     std::int32_t quantity;
@@ -35,8 +36,8 @@ struct Item {
     OptionalTimestamp previously_billed_at;
     OptionalTimestamp next_billed_at;
     std::optional<TimePeriod> trial_dates;
-    prices::Price price;
-    products::Product product;
+    prices::JsonPrice price;
+    products::JsonProduct product;
 };
 
 struct Subscription {
@@ -136,8 +137,8 @@ Item Parse(const Value& value, userver::formats::parse::To<Item>) {
     if (value.HasMember("trial_dates") && !value["trial_dates"].IsNull()) {
         item_subscription.trial_dates = value["trial_dates"].template As<TimePeriod>();
     }
-    item_subscription.price = value["price"].template As<prices::Price>();
-    item_subscription.product = value["product"].template As<products::Product>();
+    item_subscription.price = value["price"].template As<prices::JsonPrice>();
+    item_subscription.product = value["product"].template As<products::JsonProduct>();
     return item_subscription;
 }
 
