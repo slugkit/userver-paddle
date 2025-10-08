@@ -142,13 +142,15 @@ struct EventDispatcher::Impl {
         try {
             auto event = request_json_ptr->As<EventType>();
             HandleResult result = handler->HandleEvent(*request_json_ptr, std::move(event));
-            if (result.status == HandleResultStatus::kHandled) {
-                callback(event_type, event_id, HandleResultStatus::kHandled, result.reason);
-            } else {
-                if (allow_ignore_events.find(event_type) != allow_ignore_events.end()) {
-                    result.status = HandleResultStatus::kHandled;
+            if (callback) {
+                if (result.status == HandleResultStatus::kHandled) {
+                    callback(event_type, event_id, HandleResultStatus::kHandled, result.reason);
+                } else {
+                    if (allow_ignore_events.find(event_type) != allow_ignore_events.end()) {
+                        result.status = HandleResultStatus::kHandled;
+                    }
+                    callback(event_type, event_id, result.status, result.reason);
                 }
-                callback(event_type, event_id, result.status, result.reason);
             }
         } catch (const std::exception& e) {
             LOG_ERROR() << "Error handling event: " << e.what();
