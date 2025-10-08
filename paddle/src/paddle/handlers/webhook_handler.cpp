@@ -42,7 +42,7 @@ struct WebhookHandler::Impl {
     bool run_in_background;
     mutable userver::concurrent::BackgroundTaskStorage bts;
 
-    std::vector<std::string> event_sinks_names;
+    std::vector<std::string> event_sink_names;
     std::vector<EventSinkBase*> event_sinks;
 
     Impl(const userver::components::ComponentConfig& config, const userver::components::ComponentContext& context)
@@ -50,8 +50,8 @@ struct WebhookHandler::Impl {
               config["secrets-cache"].As<std::string>("paddle-webhook-secret-cache")
           )}
         , run_in_background{config["run-in-background"].As<bool>(false)}
-        , event_sinks_names{config["event-sinks"].As<std::vector<std::string>>({})} {
-        for (const auto& event_sink_name : event_sinks_names) {
+        , event_sink_names{config["event-sinks"].As<std::vector<std::string>>({})} {
+        for (const auto& event_sink_name : event_sink_names) {
             event_sinks.push_back(&context.FindComponent<EventSinkBase>(event_sink_name));
         }
     }
@@ -100,17 +100,27 @@ struct WebhookHandler::Impl {
         } else {
             SinkEvent(event_type, event_id, request_json_ptr);
         }
+        JSON::Builder builder;
+        builder["event_type"] = event_type;
+        builder["event_id"] = event_id;
+        builder["status"] = "ok";
+        return builder.ExtractValue();
     }
 
     void SinkEvent(events::EventTypeName event_type, const EventId& event_id, JSONPtr request_json_ptr) const {
-        for (const auto& event_sink : event_sinks) {
+        for (std::size_t i = 0; i < event_sinks.size(); ++i) {
+            auto event_sink = event_sinks[i];
             try {
                 event_sink->HandleEvent(event_type, event_id, request_json_ptr);
             } catch (const std::exception& e) {
-                LOG_ERROR() << "Error handling event: " << e.what();
+                LOG_ERROR() << "Error handling event with sink " << event_sink_names[i] << ": " << e.what();
                 throw uhandlers::InternalServerError(
-                    uhandlers::InternalMessage{fmt::format("Error handling event: {}", e.what())},
-                    uhandlers::ExternalBody{fmt::format("Error handling event: {}", e.what())}
+                    uhandlers::InternalMessage{
+                        fmt::format("Error handling event with sink {}: {}", event_sink_names[i], e.what())
+                    },
+                    uhandlers::ExternalBody{
+                        fmt::format("Error handling event with sink {}: {}", event_sink_names[i], e.what())
+                    }
                 );
             }
         }
