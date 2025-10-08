@@ -77,7 +77,7 @@ set(PADDLE_SRC
 )
 
 add_library(paddle_client OBJECT ${PADDLE_SRC})
-target_link_libraries(paddle_client PRIVATE userver::core userver::postgresql)
+target_link_libraries(paddle_client PRIVATE userver::core)
 target_include_directories(paddle_client PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(paddle_client PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 

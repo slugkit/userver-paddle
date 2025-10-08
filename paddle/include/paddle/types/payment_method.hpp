@@ -53,29 +53,22 @@ struct SavedPaymentMethod {
 
 }  // namespace paddle::money
 
-// PaymentMethodOrigin
+namespace paddle {
 template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::money::PaymentMethodOrigin>
-    : EnumMappingBase<paddle::money::PaymentMethodOrigin> {
-    static constexpr DBTypeName postgres_name = "paddle.payment_method_origin";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector()
-            .Case("saved_during_purchase", EnumType::kSavedDuringPurchase)
-            .Case("subscription", EnumType::kSubscription);
-    };
+constexpr userver::utils::TrivialBiMap kEnumMap<paddle::money::PaymentMethodOrigin> = [](auto selector) {
+    return selector()
+        .Case("saved_during_purchase", paddle::money::PaymentMethodOrigin::kSavedDuringPurchase)
+        .Case("subscription", paddle::money::PaymentMethodOrigin::kSubscription);
 };
 
-// PaymentMethodDeletionReason
 template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::money::PaymentMethodDeletionReason>
-    : EnumMappingBase<paddle::money::PaymentMethodDeletionReason> {
-    static constexpr DBTypeName postgres_name = "paddle.payment_method_deletion_reason";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector()
-            .Case("replaced_by_newer_version", EnumType::kReplacedByNewerVersion)
-            .Case("api", EnumType::kApi);
-    };
+constexpr userver::utils::TrivialBiMap kEnumMap<paddle::money::PaymentMethodDeletionReason> = [](auto selector) {
+    return selector()
+        .Case("replaced_by_newer_version", paddle::money::PaymentMethodDeletionReason::kReplacedByNewerVersion)
+        .Case("api", paddle::money::PaymentMethodDeletionReason::kApi);
 };
+
+}  // namespace paddle
 
 namespace paddle::money {
 
