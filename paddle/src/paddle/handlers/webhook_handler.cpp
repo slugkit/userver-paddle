@@ -1,5 +1,7 @@
 #include <paddle/handlers/webhook_handler.hpp>
 
+#include <paddle/handlers/event_sink_base.hpp>
+
 #include <paddle/handlers/address_handler_base.hpp>
 #include <paddle/handlers/api_key_handler_base.hpp>
 #include <paddle/handlers/business_handler_base.hpp>
@@ -40,12 +42,18 @@ struct WebhookHandler::Impl {
     bool run_in_background;
     mutable userver::concurrent::BackgroundTaskStorage bts;
 
-    Handlers handlers;
+    std::vector<std::string> event_sinks_names;
+    std::vector<EventSinkBase*> event_sinks;
 
     Impl(const userver::components::ComponentConfig& config, const userver::components::ComponentContext& context)
-        : secrets_cache{context.FindComponent<components::WebhookSecretCache>(config["secrets_cache"].As<std::string>())}
-        , run_in_background{config["run_in_background"].As<bool>(false)}
-        , handlers{config, context} {
+        : secrets_cache{context.FindComponent<components::WebhookSecretCache>(
+              config["secrets-cache"].As<std::string>("paddle-webhook-secret-cache")
+          )}
+        , run_in_background{config["run-in-background"].As<bool>(false)}
+        , event_sinks_names{config["event-sinks"].As<std::vector<std::string>>({})} {
+        for (const auto& event_sink_name : event_sinks_names) {
+            event_sinks.push_back(&context.FindComponent<EventSinkBase>(event_sink_name));
+        }
     }
 
     JSON HandleEventRequest(
@@ -70,91 +78,42 @@ struct WebhookHandler::Impl {
             event_type = request_json["event_type"].As<events::EventTypeName>();
         } catch (const userver::formats::json::Exception& e) {
             throw uhandlers::InternalServerError(
-                uhandlers::InternalMessage{fmt::format("Invalid request: event_type {} is not supported", event_type_str)
+                uhandlers::InternalMessage{
+                    fmt::format("Invalid request: event_type {} is not supported", event_type_str)
                 },
                 uhandlers::ExternalBody{fmt::format("Invalid request: event_type {} is not supported", event_type_str)}
             );
         }
-        try {
-            LOG_INFO() << "Received event: " << event_type_str;
-            auto category = events::GetEventCategory(event_type);
-            JSON::Builder builder;
-            switch (category) {
-                case events::EventCategory::kTransaction:
-                    HandleEvent(request_json, handlers.transaction_handler);
-                    builder["status"] = "ok";
-                    break;
-                case events::EventCategory::kSubscription:
-                    HandleEvent(request_json, handlers.subscription_handler);
-                    builder["status"] = "ok";
-                    break;
-                case events::EventCategory::kCustomer:
-                    HandleEvent(request_json, handlers.customer_handler);
-                    builder["status"] = "ok";
-                    break;
-                case events::EventCategory::kPaymentMethod:
-                    HandleEvent(request_json, handlers.payment_method_handler);
-                    builder["status"] = "ok";
-                    break;
-                case events::EventCategory::kPrice:
-                    HandleEvent(request_json, handlers.price_handler);
-                    builder["status"] = "ok";
-                    break;
-                case events::EventCategory::kProduct:
-                    HandleEvent(request_json, handlers.product_handler);
-                    builder["status"] = "ok";
-                    break;
-                case events::EventCategory::kAddress:
-                    HandleEvent(request_json, handlers.address_handler);
-                    builder["status"] = "ok";
-                    break;
-                case events::EventCategory::kBusiness:
-                    HandleEvent(request_json, handlers.business_handler);
-                    builder["status"] = "ok";
-                    break;
-                case events::EventCategory::kApiKey:
-                    HandleEvent(request_json, handlers.api_key_handler);
-                    builder["status"] = "ok";
-                    break;
-                case events::EventCategory::kClientToken:
-                    HandleEvent(request_json, handlers.client_token_handler);
-                    builder["status"] = "ok";
-                    break;
-                default:
-                    LOG_INFO() << "Event handling not implemented for event category: " << category;
-                    builder["status"] = "dubious";
-                    builder["message"] =
-                        fmt::format("Event handling not implemented for event category: {}", EnumToString(category));
-            }
-            return builder.ExtractValue();
-        } catch (const std::exception& e) {
-            LOG_ERROR() << "Error handling event: " << e.what();
-            throw uhandlers::InternalServerError(
-                uhandlers::InternalMessage{fmt::format("Error handling event: {}", e.what())},
-                uhandlers::ExternalBody{fmt::format("Error handling event: {}", e.what())}
+        // copy request to a shared pointer
+        auto request_json_ptr = std::make_shared<JSON>(request_json);
+        auto event_id = request_json["event_id"].As<EventId>();
+        if (run_in_background) {
+            bts.AsyncDetach(
+                "sink-event",
+                [this](events::EventTypeName event_type, const EventId& event_id, JSONPtr request_json_ptr) {
+                    SinkEvent(event_type, event_id, request_json_ptr);
+                },
+                event_type,
+                event_id,
+                request_json_ptr
             );
+        } else {
+            SinkEvent(event_type, event_id, request_json_ptr);
         }
     }
 
-    template <typename T>
-    void HandleEvent(const userver::formats::json::Value& request_json, T* handler) const {
-        if (handler) {
-            auto event = request_json.As<typename T::EventType>();
-            if (run_in_background) {
-                bts.AsyncDetach(
-                    "handle-event",
-                    [handler](JSON request_json, typename T::EventType event) {
-                        handler->HandleEvent(std::move(request_json), std::move(event));
-                    },
-                    request_json,
-                    event
+    void SinkEvent(events::EventTypeName event_type, const EventId& event_id, JSONPtr request_json_ptr) const {
+        for (const auto& event_sink : event_sinks) {
+            try {
+                event_sink->HandleEvent(event_type, event_id, request_json_ptr);
+            } catch (const std::exception& e) {
+                LOG_ERROR() << "Error handling event: " << e.what();
+                throw uhandlers::InternalServerError(
+                    uhandlers::InternalMessage{fmt::format("Error handling event: {}", e.what())},
+                    uhandlers::ExternalBody{fmt::format("Error handling event: {}", e.what())}
                 );
-            } else {
-                handler->HandleEvent(request_json, std::move(event));
             }
-            return;
         }
-        LOG_INFO() << "No event handler configured for event category: " << T::kEventCategory;
     }
 };
 
@@ -177,21 +136,27 @@ auto WebhookHandler::HandleRequestJsonThrow(
 }
 
 auto WebhookHandler::GetStaticConfigSchema() -> userver::yaml_config::Schema {
-    return userver::yaml_config::MergeSchemas<BaseType>(fmt::format(
-        R"(
+    return userver::yaml_config::MergeSchemas<BaseType>(R"(
 type: object
 description: Paddle webhook handler component
 additionalProperties: false
 properties:
-    secrets_cache:
+    secrets-cache:
         type: string
         description: Component name for webhook secret cache
-    run_in_background:
+        defaultDescription: paddle-webhook-secret-cache
+    run-in-background:
         type: boolean
         description: Run event handling in background
-{})",
-        Handlers::GetHanderNames()
-    ));
+        defaultDescription: false
+    event-sinks:
+        type: array
+        description: Event sinks to handle events
+        items:
+            type: string
+            description: |
+                Component name for raw event handling
+)");
 }
 
 }  // namespace paddle::handlers

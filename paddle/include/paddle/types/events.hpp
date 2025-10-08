@@ -115,6 +115,10 @@ struct EventType {
     std::string description;
     std::string group;
     std::vector<std::int32_t> available_versions;
+
+    EventCategory GetCategory() const {
+        return GetEventCategory(name);
+    }
 };
 
 template <typename T = JSON>

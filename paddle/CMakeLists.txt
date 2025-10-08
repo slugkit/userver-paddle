@@ -39,6 +39,8 @@ set(PADDLE_SRC
     include/paddle/handlers/handlers.hpp
 
     include/paddle/handlers/webhook_handler.hpp
+    include/paddle/handlers/event_sink_base.hpp
+    include/paddle/handlers/event_dispatcher.hpp
 
     src/paddle/auth/signature.cpp
     
@@ -68,8 +70,9 @@ set(PADDLE_SRC
     src/paddle/handlers/api_key_handler_base.cpp
     src/paddle/handlers/client_token_handler_base.cpp
     src/paddle/handlers/handlers.cpp
-
+    
     src/paddle/handlers/webhook_handler.cpp
+    src/paddle/handlers/event_dispatcher.cpp
 
 )
 
