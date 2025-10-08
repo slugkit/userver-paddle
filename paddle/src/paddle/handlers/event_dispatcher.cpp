@@ -33,71 +33,130 @@ struct EventDispatcher::Impl {
     bool run_in_background;
     mutable userver::concurrent::BackgroundTaskStorage bts;
 
+    std::unordered_set<events::EventTypeName> allow_ignore_events;
+
     Impl(const userver::components::ComponentConfig& config, const userver::components::ComponentContext& context)
         : handlers{config, context}
-        , run_in_background{config["run-in-background"].As<bool>(false)} {
+        , run_in_background{config["run-in-background"].As<bool>(false)}
+        , allow_ignore_events{config["allow-ignore-events"].As<std::unordered_set<events::EventTypeName>>({})} {
     }
 
-    void DispatchEvent(events::EventTypeName event_type, const EventId& event_id, JSONPtr request_json_ptr) const {
+    void DispatchEvent(
+        events::EventTypeName event_type,
+        const EventId& event_id,
+        JSONPtr request_json_ptr,
+        EventHandlingResultCallback callback
+    ) const {
         LOG_INFO() << "Dispatching event " << event_type << " for event id " << event_id;
         auto category = events::GetEventCategory(event_type);
         switch (category) {
             case events::EventCategory::kTransaction:
-                HandleEvent(request_json_ptr, handlers.transaction_handler);
+                DispatchEvent(request_json_ptr, event_type, handlers.transaction_handler, callback);
                 break;
             case events::EventCategory::kSubscription:
-                HandleEvent(request_json_ptr, handlers.subscription_handler);
+                DispatchEvent(request_json_ptr, event_type, handlers.subscription_handler, callback);
                 break;
             case events::EventCategory::kCustomer:
-                HandleEvent(request_json_ptr, handlers.customer_handler);
+                DispatchEvent(request_json_ptr, event_type, handlers.customer_handler, callback);
                 break;
             case events::EventCategory::kPaymentMethod:
-                HandleEvent(request_json_ptr, handlers.payment_method_handler);
+                DispatchEvent(request_json_ptr, event_type, handlers.payment_method_handler, callback);
                 break;
             case events::EventCategory::kPrice:
-                HandleEvent(request_json_ptr, handlers.price_handler);
+                DispatchEvent(request_json_ptr, event_type, handlers.price_handler, callback);
                 break;
             case events::EventCategory::kProduct:
-                HandleEvent(request_json_ptr, handlers.product_handler);
+                DispatchEvent(request_json_ptr, event_type, handlers.product_handler, callback);
                 break;
             case events::EventCategory::kAddress:
-                HandleEvent(request_json_ptr, handlers.address_handler);
+                DispatchEvent(request_json_ptr, event_type, handlers.address_handler, callback);
                 break;
             case events::EventCategory::kBusiness:
-                HandleEvent(request_json_ptr, handlers.business_handler);
+                DispatchEvent(request_json_ptr, event_type, handlers.business_handler, callback);
                 break;
             case events::EventCategory::kApiKey:
-                HandleEvent(request_json_ptr, handlers.api_key_handler);
+                DispatchEvent(request_json_ptr, event_type, handlers.api_key_handler, callback);
                 break;
             case events::EventCategory::kClientToken:
-                HandleEvent(request_json_ptr, handlers.client_token_handler);
+                DispatchEvent(request_json_ptr, event_type, handlers.client_token_handler, callback);
                 break;
             default:
                 LOG_WARNING() << "No event handler configured for event category: " << category;
+                if (callback) {
+                    callback(event_type, event_id, HandleResultStatus::kIgnored, "Unknown event category");
+                }
                 break;
         }
     }
 
     template <typename T>
-    void HandleEvent(JSONPtr request_json_ptr, T* handler) const {
+    void DispatchEvent(
+        JSONPtr request_json_ptr,
+        events::EventTypeName event_type,
+        T* handler,
+        EventHandlingResultCallback callback
+    ) const {
         using EventType = typename T::EventType;
+        auto event_id = (*request_json_ptr)["event_id"].As<EventId>();
         if (handler) {
-            auto event = request_json_ptr->As<EventType>();
             if (run_in_background) {
                 bts.AsyncDetach(
                     "handle-event",
-                    [handler](JSONPtr request_json_ptr, EventType event) {
-                        handler->HandleEvent(*request_json_ptr, std::move(event));
-                    },
+                    [this](
+                        T* handler,
+                        JSONPtr request_json_ptr,
+                        const EventId& event_id,
+                        events::EventTypeName event_type,
+                        EventHandlingResultCallback callback
+                    ) { this->HandleEvent(handler, request_json_ptr, event_id, event_type, callback); },
+                    handler,
                     request_json_ptr,
-                    std::move(event)
+                    event_id,
+                    event_type,
+                    callback
                 );
             } else {
-                handler->HandleEvent(*request_json_ptr, std::move(event));
+                HandleEvent(handler, request_json_ptr, event_id, event_type, callback);
             }
             return;
         }
         LOG_WARNING() << "No event handler configured for event category: " << T::kEventCategory;
+        if (callback) {
+            if (allow_ignore_events.find(event_type) != allow_ignore_events.end()) {
+                callback(event_type, event_id, HandleResultStatus::kHandled, "Event ignored");
+            } else {
+                callback(event_type, event_id, HandleResultStatus::kIgnored, "No event handler configured");
+            }
+        }
+    }
+
+    template <typename T>
+    void HandleEvent(
+        T* handler,
+        JSONPtr request_json_ptr,
+        const EventId& event_id,
+        events::EventTypeName event_type,
+        EventHandlingResultCallback callback
+    ) const {
+        using EventType = typename T::EventType;
+        try {
+            auto event = request_json_ptr->As<EventType>();
+            HandleResult result = handler->HandleEvent(*request_json_ptr, std::move(event));
+            if (result.status == HandleResultStatus::kHandled) {
+                callback(event_type, event_id, HandleResultStatus::kHandled, result.reason);
+            } else {
+                if (allow_ignore_events.find(event_type) != allow_ignore_events.end()) {
+                    result.status = HandleResultStatus::kHandled;
+                }
+                callback(event_type, event_id, result.status, result.reason);
+            }
+        } catch (const std::exception& e) {
+            LOG_ERROR() << "Error handling event: " << e.what();
+            if (callback) {
+                callback(event_type, event_id, HandleResultStatus::kError, e.what());
+                return;
+            }
+        }
     }
 };
 
@@ -111,9 +170,18 @@ EventDispatcher::EventDispatcher(
 
 EventDispatcher::~EventDispatcher() = default;
 
+auto EventDispatcher::DispatchEvent(
+    events::EventTypeName event_type,
+    const EventId& event_id,
+    JSONPtr request_json_ptr,
+    EventHandlingResultCallback callback
+) const -> void {
+    impl_->DispatchEvent(event_type, event_id, request_json_ptr, callback);
+}
+
 auto EventDispatcher::DoHandleEvent(events::EventTypeName event_type, const EventId& event_id, JSONPtr request_json_ptr)
     const -> void {
-    impl_->DispatchEvent(event_type, event_id, request_json_ptr);
+    impl_->DispatchEvent(event_type, event_id, request_json_ptr, nullptr);
 }
 
 auto EventDispatcher::GetStaticConfigSchema() -> userver::yaml_config::Schema {
@@ -127,6 +195,15 @@ properties:
         type: boolean
         description: Run event handling in background
         defaultDescription: false
+    allow-ignore-events:
+        type: array
+        description: |
+            List of event types to allow ignoring. 
+            If an event type is in this list, the result of the event handling will be set to kHandled
+            unless an exception is thrown.
+        items:
+            type: string
+            description: Event type
 {})",
         Handlers::GetHanderNames()
     ));

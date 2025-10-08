@@ -1,5 +1,6 @@
 #pragma once
 
+#include <paddle/handlers/handle_result.hpp>
 #include <paddle/types/enums.hpp>
 #include <paddle/types/ids.hpp>
 #include <paddle/types/timestamp.hpp>
@@ -144,14 +145,16 @@ template <EventTypeName TypeName>
 using EventPayload = void;
 
 template <typename T>
-void LogEventIgnored(const EventWithNotification<T>& event) {
+auto LogEventIgnored(const EventWithNotification<T>& event) -> handlers::HandleResult {
     LOG_INFO() << "Event ignored: " << event.event_id << " " << event.event_type << " " << event.occurred_at
                << " notification_id: " << event.notification_id;
+    return handlers::HandleResult{handlers::HandleResultStatus::kIgnored, "Event ignored"};
 }
 
 template <typename T>
-void LogEventIgnored(const Event<T>& event) {
+auto LogEventIgnored(const Event<T>& event) -> handlers::HandleResult {
     LOG_INFO() << "Event ignored: " << event.event_id << " " << event.event_type << " " << event.occurred_at;
+    return handlers::HandleResult{handlers::HandleResultStatus::kIgnored, "Event ignored"};
 }
 
 template <typename T>

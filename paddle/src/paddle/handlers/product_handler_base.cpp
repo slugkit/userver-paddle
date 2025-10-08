@@ -70,48 +70,49 @@ properties:
     )");
 }
 
-auto ProductHandlerBase::HandleEvent([[maybe_unused]] const JSON& request_json, EventType&& event) const -> void {
+auto ProductHandlerBase::HandleEvent([[maybe_unused]] const JSON& request_json, EventType&& event) const
+    -> HandleResult {
     LOG_INFO() << "Handling event: " << event.event_type << " " << event.event_id;
     switch (event.event_type) {
         case events::EventTypeName::kProductCreated:
-            HandleCreated(std::move(event));
-            break;
+            return HandleCreated(std::move(event));
         case events::EventTypeName::kProductImported:
-            HandleImported(std::move(event));
-            break;
+            return HandleImported(std::move(event));
         case events::EventTypeName::kProductUpdated:
-            HandleUpdated(std::move(event));
-            break;
+            return HandleUpdated(std::move(event));
         default:
             LOG_INFO() << "Event handling not implemented for event type: " << event.event_type;
     }
+    return HandleResult{
+        HandleResultStatus::kIgnored, "Event handling not implemented for event type: " + EnumToString(event.event_type)
+    };
 }
 
-auto ProductHandlerBase::HandleCreated(EventType&& event) const -> void {
+auto ProductHandlerBase::HandleCreated(EventType&& event) const -> HandleResult {
     impl_->AddProduct(event.data);
-    DoHandleCreated(std::move(event));
+    return DoHandleCreated(std::move(event));
 }
 
-auto ProductHandlerBase::DoHandleCreated(EventType&& event) const -> void {
-    LogEventIgnored(event);
+auto ProductHandlerBase::DoHandleCreated(EventType&& event) const -> HandleResult {
+    return LogEventIgnored(event);
 }
 
-auto ProductHandlerBase::HandleImported(EventType&& event) const -> void {
+auto ProductHandlerBase::HandleImported(EventType&& event) const -> HandleResult {
     impl_->AddProduct(event.data);
-    DoHandleImported(std::move(event));
+    return DoHandleImported(std::move(event));
 }
 
-auto ProductHandlerBase::DoHandleImported(EventType&& event) const -> void {
-    LogEventIgnored(event);
+auto ProductHandlerBase::DoHandleImported(EventType&& event) const -> HandleResult {
+    return LogEventIgnored(event);
 }
 
-auto ProductHandlerBase::HandleUpdated(EventType&& event) const -> void {
+auto ProductHandlerBase::HandleUpdated(EventType&& event) const -> HandleResult {
     impl_->UpdateProduct(event.data);
-    DoHandleUpdated(std::move(event));
+    return DoHandleUpdated(std::move(event));
 }
 
-auto ProductHandlerBase::DoHandleUpdated(EventType&& event) const -> void {
-    LogEventIgnored(event);
+auto ProductHandlerBase::DoHandleUpdated(EventType&& event) const -> HandleResult {
+    return LogEventIgnored(event);
 }
 
 }  // namespace paddle::handlers

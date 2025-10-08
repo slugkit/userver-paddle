@@ -21,6 +21,15 @@ auto EnumToString(const Enum& enum_value) -> std::string {
     throw std::invalid_argument(fmt::format("Invalid enum value: {}", static_cast<EnumUnderlyingType>(enum_value)));
 }
 
+template <typename Enum>
+auto EnumFromString(const std::string& str) -> Enum {
+    auto enum_value_ptr = kEnumMap<Enum>.TryFind(str);
+    if (enum_value_ptr.has_value()) {
+        return *enum_value_ptr;
+    }
+    throw std::invalid_argument(fmt::format("Invalid enum value: {}", str));
+}
+
 template <typename Enum, typename Format>
 auto SerializeEnum(const Enum& enum_value, userver::formats::serialize::To<Format>) -> Format {
     typename Format::Builder builder(EnumToString(enum_value));
@@ -30,11 +39,7 @@ auto SerializeEnum(const Enum& enum_value, userver::formats::serialize::To<Forma
 template <typename Enum, typename Value>
 auto ParseEnum(const Value& value, userver::formats::parse::To<Enum>) -> Enum {
     auto enum_value = value.template As<std::string>();
-    auto enum_value_ptr = kEnumMap<Enum>.TryFind(enum_value);
-    if (enum_value_ptr.has_value()) {
-        return *enum_value_ptr;
-    }
-    throw std::invalid_argument(fmt::format("Invalid enum value: {}", enum_value));
+    return EnumFromString<Enum>(enum_value);
 }
 
 template <typename Enum>
