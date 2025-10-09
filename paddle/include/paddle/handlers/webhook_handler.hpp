@@ -19,14 +19,14 @@ public:
 
     static auto GetStaticConfigSchema() -> userver::yaml_config::Schema;
 
-    userver::formats::json::Value HandleRequestJsonThrow(
+    auto HandleRequestJsonThrow(
         const userver::server::http::HttpRequest& request,
         const userver::formats::json::Value& request_json,
         userver::server::request::RequestContext& context
-    ) const override final;
+    ) const -> userver::formats::json::Value final;
 
 private:
-    constexpr static auto kImplSize = 224UL;
+    constexpr static auto kImplSize = 272UL;
     constexpr static auto kImplAlign = 16UL;
     struct Impl;
     userver::utils::FastPimpl<Impl, kImplSize, kImplAlign> impl_;

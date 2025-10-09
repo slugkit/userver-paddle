@@ -1,5 +1,6 @@
 #pragma once
 
+#include <paddle/handlers/handle_result.hpp>
 #include <paddle/types/enums.hpp>
 #include <paddle/types/ids.hpp>
 #include <paddle/types/timestamp.hpp>
@@ -115,6 +116,10 @@ struct EventType {
     std::string description;
     std::string group;
     std::vector<std::int32_t> available_versions;
+
+    EventCategory GetCategory() const {
+        return GetEventCategory(name);
+    }
 };
 
 template <typename T = JSON>
@@ -140,14 +145,16 @@ template <EventTypeName TypeName>
 using EventPayload = void;
 
 template <typename T>
-void LogEventIgnored(const EventWithNotification<T>& event) {
+auto LogEventIgnored(const EventWithNotification<T>& event) -> handlers::HandleResult {
     LOG_INFO() << "Event ignored: " << event.event_id << " " << event.event_type << " " << event.occurred_at
                << " notification_id: " << event.notification_id;
+    return handlers::HandleResult{handlers::HandleResultStatus::kIgnored, "Event ignored"};
 }
 
 template <typename T>
-void LogEventIgnored(const Event<T>& event) {
+auto LogEventIgnored(const Event<T>& event) -> handlers::HandleResult {
     LOG_INFO() << "Event ignored: " << event.event_id << " " << event.event_type << " " << event.occurred_at;
+    return handlers::HandleResult{handlers::HandleResultStatus::kIgnored, "Event ignored"};
 }
 
 template <typename T>
@@ -173,106 +180,97 @@ Event<T> ParsePayload(EventWithNotification<JSON>&& event) {
 
 }  // namespace paddle::events
 
+namespace paddle {
 template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::events::EventTypeName>
-    : storages::postgres::io::EnumMappingBase<paddle::events::EventTypeName> {
-    static constexpr DBTypeName postgres_name = "paddle.event_type_name";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector()
-            .Case("address.created", EnumType::kAddressCreated)
-            .Case("address.imported", EnumType::kAddressImported)
-            .Case("address.updated", EnumType::kAddressUpdated)
-            .Case("adjustment.created", EnumType::kAdjustmentCreated)
-            .Case("adjustment.updated", EnumType::kAdjustmentUpdated)
-            .Case("api_key.created", EnumType::kApiKeyCreated)
-            .Case("api_key.expired", EnumType::kApiKeyExpired)
-            .Case("api_key.expiring", EnumType::kApiKeyExpiring)
-            .Case("api_key.revoked", EnumType::kApiKeyRevoked)
-            .Case("api_key.updated", EnumType::kApiKeyUpdated)
-            .Case("client_token.created", EnumType::kClientTokenCreated)
-            .Case("client_token.revoked", EnumType::kClientTokenRevoked)
-            .Case("client_token.updated", EnumType::kClientTokenUpdated)
-            .Case("business.created", EnumType::kBusinessCreated)
-            .Case("business.imported", EnumType::kBusinessImported)
-            .Case("business.updated", EnumType::kBusinessUpdated)
-            .Case("customer.created", EnumType::kCustomerCreated)
-            .Case("customer.imported", EnumType::kCustomerImported)
-            .Case("customer.updated", EnumType::kCustomerUpdated)
-            .Case("discount.created", EnumType::kDiscountCreated)
-            .Case("discount.imported", EnumType::kDiscountImported)
-            .Case("discount.updated", EnumType::kDiscountUpdated)
-            .Case("discount_group.created", EnumType::kDiscountGroupCreated)
-            .Case("discount_group.updated", EnumType::kDiscountGroupUpdated)
-            .Case("payment_method.saved", EnumType::kPaymentMethodSaved)
-            .Case("payment_method.deleted", EnumType::kPaymentMethodDeleted)
-            .Case("payout.created", EnumType::kPayoutCreated)
-            .Case("payout.paid", EnumType::kPayoutPaid)
-            .Case("price.created", EnumType::kPriceCreated)
-            .Case("price.imported", EnumType::kPriceImported)
-            .Case("price.updated", EnumType::kPriceUpdated)
-            .Case("product.created", EnumType::kProductCreated)
-            .Case("product.imported", EnumType::kProductImported)
-            .Case("product.updated", EnumType::kProductUpdated)
-            .Case("report.created", EnumType::kReportCreated)
-            .Case("report.updated", EnumType::kReportUpdated)
-            .Case("subscription.activated", EnumType::kSubscriptionActivated)
-            .Case("subscription.canceled", EnumType::kSubscriptionCanceled)
-            .Case("subscription.created", EnumType::kSubscriptionCreated)
-            .Case("subscription.imported", EnumType::kSubscriptionImported)
-            .Case("subscription.past_due", EnumType::kSubscriptionPastDue)
-            .Case("subscription.paused", EnumType::kSubscriptionPaused)
-            .Case("subscription.resumed", EnumType::kSubscriptionResumed)
-            .Case("subscription.updated", EnumType::kSubscriptionUpdated)
-            .Case("subscription.trialing", EnumType::kSubscriptionTrialing)
-            .Case("transaction.billed", EnumType::kTransactionBilled)
-            .Case("transaction.canceled", EnumType::kTransactionCanceled)
-            .Case("transaction.completed", EnumType::kTransactionCompleted)
-            .Case("transaction.created", EnumType::kTransactionCreated)
-            .Case("transaction.paid", EnumType::kTransactionPaid)
-            .Case("transaction.past_due", EnumType::kTransactionPastDue)
-            .Case("transaction.payment_failed", EnumType::kTransactionPaymentFailed)
-            .Case("transaction.ready", EnumType::kTransactionReady)
-            .Case("transaction.revised", EnumType::kTransactionRevised)
-            .Case("transaction.updated", EnumType::kTransactionUpdated);
-    };
+constexpr userver::utils::TrivialBiMap kEnumMap<paddle::events::EventTypeName> = [](auto selector) {
+    return selector()
+        .Case("address.created", events::EventTypeName::kAddressCreated)
+        .Case("address.imported", events::EventTypeName::kAddressImported)
+        .Case("address.updated", events::EventTypeName::kAddressUpdated)
+        .Case("adjustment.created", events::EventTypeName::kAdjustmentCreated)
+        .Case("adjustment.updated", events::EventTypeName::kAdjustmentUpdated)
+        .Case("api_key.created", events::EventTypeName::kApiKeyCreated)
+        .Case("api_key.expired", events::EventTypeName::kApiKeyExpired)
+        .Case("api_key.expiring", events::EventTypeName::kApiKeyExpiring)
+        .Case("api_key.revoked", events::EventTypeName::kApiKeyRevoked)
+        .Case("api_key.updated", events::EventTypeName::kApiKeyUpdated)
+        .Case("client_token.created", events::EventTypeName::kClientTokenCreated)
+        .Case("client_token.revoked", events::EventTypeName::kClientTokenRevoked)
+        .Case("client_token.updated", events::EventTypeName::kClientTokenUpdated)
+        .Case("business.created", events::EventTypeName::kBusinessCreated)
+        .Case("business.imported", events::EventTypeName::kBusinessImported)
+        .Case("business.updated", events::EventTypeName::kBusinessUpdated)
+        .Case("customer.created", events::EventTypeName::kCustomerCreated)
+        .Case("customer.imported", events::EventTypeName::kCustomerImported)
+        .Case("customer.updated", events::EventTypeName::kCustomerUpdated)
+        .Case("discount.created", events::EventTypeName::kDiscountCreated)
+        .Case("discount.imported", events::EventTypeName::kDiscountImported)
+        .Case("discount.updated", events::EventTypeName::kDiscountUpdated)
+        .Case("discount_group.created", events::EventTypeName::kDiscountGroupCreated)
+        .Case("discount_group.updated", events::EventTypeName::kDiscountGroupUpdated)
+        .Case("payment_method.saved", events::EventTypeName::kPaymentMethodSaved)
+        .Case("payment_method.deleted", events::EventTypeName::kPaymentMethodDeleted)
+        .Case("payout.created", events::EventTypeName::kPayoutCreated)
+        .Case("payout.paid", events::EventTypeName::kPayoutPaid)
+        .Case("price.created", events::EventTypeName::kPriceCreated)
+        .Case("price.imported", events::EventTypeName::kPriceImported)
+        .Case("price.updated", events::EventTypeName::kPriceUpdated)
+        .Case("product.created", events::EventTypeName::kProductCreated)
+        .Case("product.imported", events::EventTypeName::kProductImported)
+        .Case("product.updated", events::EventTypeName::kProductUpdated)
+        .Case("report.created", events::EventTypeName::kReportCreated)
+        .Case("report.updated", events::EventTypeName::kReportUpdated)
+        .Case("subscription.activated", events::EventTypeName::kSubscriptionActivated)
+        .Case("subscription.canceled", events::EventTypeName::kSubscriptionCanceled)
+        .Case("subscription.created", events::EventTypeName::kSubscriptionCreated)
+        .Case("subscription.imported", events::EventTypeName::kSubscriptionImported)
+        .Case("subscription.past_due", events::EventTypeName::kSubscriptionPastDue)
+        .Case("subscription.paused", events::EventTypeName::kSubscriptionPaused)
+        .Case("subscription.resumed", events::EventTypeName::kSubscriptionResumed)
+        .Case("subscription.updated", events::EventTypeName::kSubscriptionUpdated)
+        .Case("subscription.trialing", events::EventTypeName::kSubscriptionTrialing)
+        .Case("transaction.billed", events::EventTypeName::kTransactionBilled)
+        .Case("transaction.canceled", events::EventTypeName::kTransactionCanceled)
+        .Case("transaction.completed", events::EventTypeName::kTransactionCompleted)
+        .Case("transaction.created", events::EventTypeName::kTransactionCreated)
+        .Case("transaction.paid", events::EventTypeName::kTransactionPaid)
+        .Case("transaction.past_due", events::EventTypeName::kTransactionPastDue)
+        .Case("transaction.payment_failed", events::EventTypeName::kTransactionPaymentFailed)
+        .Case("transaction.ready", events::EventTypeName::kTransactionReady)
+        .Case("transaction.revised", events::EventTypeName::kTransactionRevised)
+        .Case("transaction.updated", events::EventTypeName::kTransactionUpdated);
 };
 
 template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::events::EventCategory>
-    : storages::postgres::io::EnumMappingBase<paddle::events::EventCategory> {
-    static constexpr DBTypeName postgres_name = "paddle.event_category";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector()
-            .Case("address", EnumType::kAddress)
-            .Case("adjustment", EnumType::kAdjustment)
-            .Case("api_key", EnumType::kApiKey)
-            .Case("client_token", EnumType::kClientToken)
-            .Case("business", EnumType::kBusiness)
-            .Case("customer", EnumType::kCustomer)
-            .Case("discount", EnumType::kDiscount)
-            .Case("discount_group", EnumType::kDiscountGroup)
-            .Case("payment_method", EnumType::kPaymentMethod)
-            .Case("payout", EnumType::kPayout)
-            .Case("price", EnumType::kPrice)
-            .Case("product", EnumType::kProduct)
-            .Case("report", EnumType::kReport)
-            .Case("subscription", EnumType::kSubscription)
-            .Case("transaction", EnumType::kTransaction)
-            .Case("unknown", EnumType::kUnknown);
-    };
+constexpr userver::utils::TrivialBiMap kEnumMap<paddle::events::EventCategory> = [](auto selector) {
+    return selector()
+        .Case("address", events::EventCategory::kAddress)
+        .Case("adjustment", events::EventCategory::kAdjustment)
+        .Case("api_key", events::EventCategory::kApiKey)
+        .Case("client_token", events::EventCategory::kClientToken)
+        .Case("business", events::EventCategory::kBusiness)
+        .Case("customer", events::EventCategory::kCustomer)
+        .Case("discount", events::EventCategory::kDiscount)
+        .Case("discount_group", events::EventCategory::kDiscountGroup)
+        .Case("payment_method", events::EventCategory::kPaymentMethod)
+        .Case("payout", events::EventCategory::kPayout)
+        .Case("price", events::EventCategory::kPrice)
+        .Case("product", events::EventCategory::kProduct)
+        .Case("report", events::EventCategory::kReport)
+        .Case("subscription", events::EventCategory::kSubscription)
+        .Case("transaction", events::EventCategory::kTransaction)
+        .Case("unknown", events::EventCategory::kUnknown);
 };
 
 template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::events::TrafficSource>
-    : storages::postgres::io::EnumMappingBase<paddle::events::TrafficSource> {
-    static constexpr DBTypeName postgres_name = "paddle.traffic_source";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector()
-            .Case("platform", EnumType::kPlatform)
-            .Case("simulation", EnumType::kSimulation)
-            .Case("all", EnumType::kAll);
-    };
+constexpr userver::utils::TrivialBiMap kEnumMap<paddle::events::TrafficSource> = [](auto selector) {
+    return selector()
+        .Case("platform", events::TrafficSource::kPlatform)
+        .Case("simulation", events::TrafficSource::kSimulation)
+        .Case("all", events::TrafficSource::kAll);
 };
+
+}  // namespace paddle
 
 namespace paddle::events {
 

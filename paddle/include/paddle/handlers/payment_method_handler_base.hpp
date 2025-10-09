@@ -16,14 +16,14 @@ public:
 
     using BaseType::BaseType;
 
-    auto HandleEvent(const JSON& request_json, EventType&& event) const -> void;
+    auto HandleEvent(const JSON& request_json, EventType&& event) const -> HandleResult;
 
-    auto HandleSaved(EventType&& event) const -> void;
-    auto HandleDeleted(EventType&& event) const -> void;
+    auto HandleSaved(EventType&& event) const -> HandleResult;
+    auto HandleDeleted(EventType&& event) const -> HandleResult;
 
 private:
-    virtual auto DoHandleSaved(EventType&&) const -> void;
-    virtual auto DoHandleDeleted(EventType&&) const -> void;
+    virtual auto DoHandleSaved(EventType&&) const -> HandleResult;
+    virtual auto DoHandleDeleted(EventType&&) const -> HandleResult;
 };
 
 }  // namespace paddle::handlers

@@ -17,26 +17,28 @@ public:
 
     using BaseType::BaseType;
 
-    auto HandleEvent(const JSON& request_json, EventType&& event) const -> void;
+    auto HandleEvent(const JSON& request_json, EventType&& event) const -> HandleResult;
 
-    auto HandleActivated(EventType&& event) const -> void;
-    auto HandleCanceled(EventType&& event) const -> void;
-    auto HandleCreated(TransactionId&& transaction_id, EventType&& event) const -> void;
-    auto HandleImported(EventType&& event) const -> void;
-    auto HandlePastDue(EventType&& event) const -> void;
-    auto HandlePaused(EventType&& event) const -> void;
-    auto HandleResumed(EventType&& event) const -> void;
-    auto HandleUpdated(EventType&& event) const -> void;
+    auto HandleActivated(EventType&& event) const -> HandleResult;
+    auto HandleCanceled(EventType&& event) const -> HandleResult;
+    auto HandleCreated(TransactionId&& transaction_id, EventType&& event) const -> HandleResult;
+    auto HandleImported(EventType&& event) const -> HandleResult;
+    auto HandlePastDue(EventType&& event) const -> HandleResult;
+    auto HandlePaused(EventType&& event) const -> HandleResult;
+    auto HandleResumed(EventType&& event) const -> HandleResult;
+    auto HandleUpdated(EventType&& event) const -> HandleResult;
+    auto HandleTrialing(EventType&& event) const -> HandleResult;
 
 private:
-    virtual auto DoHandleActivated(EventType&&) const -> void;
-    virtual auto DoHandleCanceled(EventType&&) const -> void;
-    virtual auto DoHandleCreated(TransactionId&&, EventType&&) const -> void;
-    virtual auto DoHandleImported(EventType&&) const -> void;
-    virtual auto DoHandlePastDue(EventType&&) const -> void;
-    virtual auto DoHandlePaused(EventType&&) const -> void;
-    virtual auto DoHandleResumed(EventType&&) const -> void;
-    virtual auto DoHandleUpdated(EventType&&) const -> void;
+    virtual auto DoHandleActivated(EventType&&) const -> HandleResult;
+    virtual auto DoHandleCanceled(EventType&&) const -> HandleResult;
+    virtual auto DoHandleCreated(TransactionId&&, EventType&&) const -> HandleResult;
+    virtual auto DoHandleImported(EventType&&) const -> HandleResult;
+    virtual auto DoHandlePastDue(EventType&&) const -> HandleResult;
+    virtual auto DoHandlePaused(EventType&&) const -> HandleResult;
+    virtual auto DoHandleResumed(EventType&&) const -> HandleResult;
+    virtual auto DoHandleUpdated(EventType&&) const -> HandleResult;
+    virtual auto DoHandleTrialing(EventType&&) const -> HandleResult;
 };
 
 }  // namespace paddle::handlers

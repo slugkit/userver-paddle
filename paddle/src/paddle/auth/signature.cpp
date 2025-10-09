@@ -16,12 +16,12 @@ namespace paddle {
 // The payload is the body of the request
 // Signed payload is <timestamp>:<payload>
 // Signature is HMAC-SHA256(secret, signed payload)
-bool VerifySignature(
+auto VerifySignature(
     std::string_view secret,
     std::string_view signature_header,
     std::string_view payload,
     std::int32_t max_age_seconds
-) {
+) -> bool {
     auto first_equal = signature_header.find('=');
     if (first_equal == std::string::npos) {
         return false;

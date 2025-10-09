@@ -10,45 +10,46 @@
 
 namespace paddle::handlers {
 
-auto AddressHandlerBase::HandleEvent([[maybe_unused]] const JSON& request_json, EventType&& event) const -> void {
+auto AddressHandlerBase::HandleEvent([[maybe_unused]] const JSON& request_json, EventType&& event) const
+    -> HandleResult {
     LOG_INFO() << "Handling event: " << event.event_type << " " << event.event_id;
     switch (event.event_type) {
         case events::EventTypeName::kAddressCreated:
-            HandleCreated(std::move(event));
-            break;
+            return HandleCreated(std::move(event));
         case events::EventTypeName::kAddressImported:
-            HandleImported(std::move(event));
-            break;
+            return HandleImported(std::move(event));
         case events::EventTypeName::kAddressUpdated:
-            HandleUpdated(std::move(event));
-            break;
+            return HandleUpdated(std::move(event));
         default:
             LOG_INFO() << "Event handling not implemented for event type: " << event.event_type;
     }
+    return HandleResult{
+        HandleResultStatus::kIgnored, "Event handling not implemented for event type: " + EnumToString(event.event_type)
+    };
 }
 
-auto AddressHandlerBase::HandleCreated(EventType&& event) const -> void {
-    DoHandleCreated(std::move(event));
+auto AddressHandlerBase::HandleCreated(EventType&& event) const -> HandleResult {
+    return DoHandleCreated(std::move(event));
 }
 
-auto AddressHandlerBase::DoHandleCreated(EventType&& event) const -> void {
-    LogEventIgnored(event);
+auto AddressHandlerBase::DoHandleCreated(EventType&& event) const -> HandleResult {
+    return LogEventIgnored(event);
 }
 
-auto AddressHandlerBase::HandleImported(EventType&& event) const -> void {
-    DoHandleImported(std::move(event));
+auto AddressHandlerBase::HandleImported(EventType&& event) const -> HandleResult {
+    return DoHandleImported(std::move(event));
 }
 
-auto AddressHandlerBase::DoHandleImported(EventType&& event) const -> void {
-    LogEventIgnored(event);
+auto AddressHandlerBase::DoHandleImported(EventType&& event) const -> HandleResult {
+    return LogEventIgnored(event);
 }
 
-auto AddressHandlerBase::HandleUpdated(EventType&& event) const -> void {
-    DoHandleUpdated(std::move(event));
+auto AddressHandlerBase::HandleUpdated(EventType&& event) const -> HandleResult {
+    return DoHandleUpdated(std::move(event));
 }
 
-auto AddressHandlerBase::DoHandleUpdated(EventType&& event) const -> void {
-    LogEventIgnored(event);
+auto AddressHandlerBase::DoHandleUpdated(EventType&& event) const -> HandleResult {
+    return LogEventIgnored(event);
 }
 
-}  // namespace paddle::components
+}  // namespace paddle::handlers

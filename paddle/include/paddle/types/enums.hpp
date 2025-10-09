@@ -3,14 +3,58 @@
 #include <paddle/types/formats.hpp>
 
 #include <userver/logging/log_helper.hpp>
-#include <userver/storages/postgres/io/enum_types.hpp>
 #include <userver/utils/trivial_map.hpp>
 
 namespace paddle {
 
+template <typename Enum>
+requires std::is_enum_v<Enum>
+constexpr userver::utils::TrivialBiMap kEnumMap = [](auto) { static_assert(false, "EnumMap not implemented"); };
+
+template <typename Enum>
+auto EnumToString(const Enum& enum_value) -> std::string {
+    using EnumUnderlyingType = std::underlying_type_t<Enum>;
+    auto literal_ptr = kEnumMap<Enum>.TryFind(enum_value);
+    if (literal_ptr.has_value()) {
+        return std::string(*literal_ptr);
+    }
+    throw std::invalid_argument(fmt::format("Invalid enum value: {}", static_cast<EnumUnderlyingType>(enum_value)));
+}
+
+template <typename Enum>
+auto EnumFromString(const std::string& str) -> Enum {
+    auto enum_value_ptr = kEnumMap<Enum>.TryFind(str);
+    if (enum_value_ptr.has_value()) {
+        return *enum_value_ptr;
+    }
+    throw std::invalid_argument(fmt::format("Invalid enum value: {}", str));
+}
+
+template <typename Enum, typename Format>
+auto SerializeEnum(const Enum& enum_value, userver::formats::serialize::To<Format>) -> Format {
+    typename Format::Builder builder(EnumToString(enum_value));
+    return builder.ExtractValue();
+}
+
+template <typename Enum, typename Value>
+auto ParseEnum(const Value& value, userver::formats::parse::To<Enum>) -> Enum {
+    auto enum_value = value.template As<std::string>();
+    return EnumFromString<Enum>(enum_value);
+}
+
+template <typename Enum>
+auto LogEnum(userver::logging::LogHelper& helper, const Enum& enum_value) -> userver::logging::LogHelper& {
+    return helper << EnumToString(enum_value);
+}
+
 enum class CatalogType {
     kStandard,
     kCustom,
+};
+
+template <>
+constexpr userver::utils::TrivialBiMap kEnumMap<CatalogType> = [](auto selector) {
+    return selector().Case("standard", CatalogType::kStandard).Case("custom", CatalogType::kCustom);
 };
 
 enum class Status {
@@ -18,11 +62,24 @@ enum class Status {
     kArchived,
 };
 
+template <>
+constexpr userver::utils::TrivialBiMap kEnumMap<Status> =
+    [](auto selector) { return selector().Case("active", Status::kActive).Case("archived", Status::kArchived); };
+
 enum class Interval {
     kDay,
     kWeek,
     kMonth,
     kYear,
+};
+
+template <>
+constexpr userver::utils::TrivialBiMap kEnumMap<Interval> = [](auto selector) {
+    return selector()
+        .Case("day", Interval::kDay)
+        .Case("week", Interval::kWeek)
+        .Case("month", Interval::kMonth)
+        .Case("year", Interval::kYear);
 };
 
 enum class TransactionStatus {
@@ -35,6 +92,18 @@ enum class TransactionStatus {
     kPastDue,
 };
 
+template <>
+constexpr userver::utils::TrivialBiMap kEnumMap<TransactionStatus> = [](auto selector) {
+    return selector()
+        .Case("draft", TransactionStatus::kDraft)
+        .Case("ready", TransactionStatus::kReady)
+        .Case("billed", TransactionStatus::kBilled)
+        .Case("paid", TransactionStatus::kPaid)
+        .Case("completed", TransactionStatus::kCompleted)
+        .Case("canceled", TransactionStatus::kCanceled)
+        .Case("past_due", TransactionStatus::kPastDue);
+};
+
 enum class TransactionOrigin {
     kApi,                 ///< Transaction created via the Paddle API.
     kSubscriptionCharge,  ///< Transaction created automatically by Paddle as a result of a one-time charge for a
@@ -44,6 +113,17 @@ enum class TransactionOrigin {
     kSubscriptionRecurring,  ///< Transaction created automatically by Paddle as a result of a subscription renewal.
     kSubscriptionUpdate,  ///< Transaction created automatically by Paddle as a result of an update to a subscription.
     kWeb,                 ///< Transaction created automatically by Paddle.js for a checkout.
+};
+
+template <>
+constexpr userver::utils::TrivialBiMap kEnumMap<TransactionOrigin> = [](auto selector) {
+    return selector()
+        .Case("api", TransactionOrigin::kApi)
+        .Case("subscription_charge", TransactionOrigin::kSubscriptionCharge)
+        .Case("subscription_payment_method_change", TransactionOrigin::kSubscriptionPaymentMethodChange)
+        .Case("subscription_recurring", TransactionOrigin::kSubscriptionRecurring)
+        .Case("subscription_update", TransactionOrigin::kSubscriptionUpdate)
+        .Case("web", TransactionOrigin::kWeb);
 };
 
 enum class PaymentAttemptStatus {
@@ -61,6 +141,21 @@ enum class PaymentAttemptStatus {
     kCreated,                  ///< New payment attempt created.
     kUnknown,                  ///< Payment attempt status not known.
     kDropped,                  ///< Payment attempt dropped by Paddle.
+};
+
+template <>
+constexpr userver::utils::TrivialBiMap kEnumMap<PaymentAttemptStatus> = [](auto selector) {
+    return selector()
+        .Case("authorized", PaymentAttemptStatus::kAuthorized)
+        .Case("authorized_flagged", PaymentAttemptStatus::kAuthorizedFlagged)
+        .Case("canceled", PaymentAttemptStatus::kCanceled)
+        .Case("captured", PaymentAttemptStatus::kCaptured)
+        .Case("error", PaymentAttemptStatus::kError)
+        .Case("action_required", PaymentAttemptStatus::kActionRequired)
+        .Case("pending_no_action_required", PaymentAttemptStatus::kPendingNoActionRequired)
+        .Case("created", PaymentAttemptStatus::kCreated)
+        .Case("unknown", PaymentAttemptStatus::kUnknown)
+        .Case("dropped", PaymentAttemptStatus::kDropped);
 };
 
 /// Reason why a payment attempt failed.
@@ -99,6 +194,30 @@ enum class PaymentAttemptErrorCode {
     kUnknown,                  ///< Payment attempt unsuccessful, with no other information returned.
 };
 
+template <>
+constexpr userver::utils::TrivialBiMap kEnumMap<PaymentAttemptErrorCode> = [](auto selector) {
+    return selector()
+        .Case("already_canceled", PaymentAttemptErrorCode::kAlreadyCanceled)
+        .Case("already_refunded", PaymentAttemptErrorCode::kAlreadyRefunded)
+        .Case("authentication_failed", PaymentAttemptErrorCode::kAuthenticationFailed)
+        .Case("blocked_card", PaymentAttemptErrorCode::kBlockedCard)
+        .Case("canceled", PaymentAttemptErrorCode::kCanceled)
+        .Case("declined", PaymentAttemptErrorCode::kDeclined)
+        .Case("declined_not_retryable", PaymentAttemptErrorCode::kDeclinedNotRetryable)
+        .Case("expired_card", PaymentAttemptErrorCode::kExpiredCard)
+        .Case("fraud", PaymentAttemptErrorCode::kFraud)
+        .Case("invalid_amount", PaymentAttemptErrorCode::kInvalidAmount)
+        .Case("invalid_payment_details", PaymentAttemptErrorCode::kInvalidPaymentDetails)
+        .Case("issuer_unavailable", PaymentAttemptErrorCode::kIssuerUnavailable)
+        .Case("not_enough_balance", PaymentAttemptErrorCode::kNotEnoughBalance)
+        .Case("preferred_network_not_supported", PaymentAttemptErrorCode::kPreferredNetworkNotSupported)
+        .Case("psp_error", PaymentAttemptErrorCode::kPspError)
+        .Case("redacted_payment_method", PaymentAttemptErrorCode::kRedactedPaymentMethod)
+        .Case("system_error", PaymentAttemptErrorCode::kSystemError)
+        .Case("transaction_not_permitted", PaymentAttemptErrorCode::kTransactionNotPermitted)
+        .Case("unknown", PaymentAttemptErrorCode::kUnknown);
+};
+
 /// Type of payment method used for this payment attempt.
 enum class PaymentMethodType {
     kAlipay,        ///< Alipay, popular in China.
@@ -116,6 +235,22 @@ enum class PaymentMethodType {
     kWireTransfer,  ///< Wire transfer, sometimes called bank transfer.
 };
 
+template <>
+constexpr userver::utils::TrivialBiMap kEnumMap<PaymentMethodType> = [](auto selector) {
+    return selector()
+        .Case("alipay", PaymentMethodType::kAlipay)
+        .Case("apple_pay", PaymentMethodType::kApplePay)
+        .Case("bancontact", PaymentMethodType::kBancontact)
+        .Case("card", PaymentMethodType::kCard)
+        .Case("google_pay", PaymentMethodType::kGooglePay)
+        .Case("ideal", PaymentMethodType::kIdeal)
+        .Case("korea_local", PaymentMethodType::kKoreaLocal)
+        .Case("offline", PaymentMethodType::kOffline)
+        .Case("paypal", PaymentMethodType::kPaypal)
+        .Case("unknown", PaymentMethodType::kUnknown)
+        .Case("wire_transfer", PaymentMethodType::kWireTransfer);
+};
+
 enum class SubscriptionStatus {
     kActive,
     kCancelled,
@@ -124,15 +259,38 @@ enum class SubscriptionStatus {
     kTrialing,
 };
 
+template <>
+constexpr userver::utils::TrivialBiMap kEnumMap<SubscriptionStatus> = [](auto selector) {
+    return selector()
+        .Case("active", SubscriptionStatus::kActive)
+        .Case("cancelled", SubscriptionStatus::kCancelled)
+        .Case("past_due", SubscriptionStatus::kPastDue)
+        .Case("paused", SubscriptionStatus::kPaused)
+        .Case("trialing", SubscriptionStatus::kTrialing);
+};
+
 enum class SubscriptionItemStatus {
     kActive,
     kInactive,
     kTrialing,
 };
 
+template <>
+constexpr userver::utils::TrivialBiMap kEnumMap<SubscriptionItemStatus> = [](auto selector) {
+    return selector()
+        .Case("active", SubscriptionItemStatus::kActive)
+        .Case("inactive", SubscriptionItemStatus::kInactive)
+        .Case("trialing", SubscriptionItemStatus::kTrialing);
+};
+
 enum class CollectionMode {
     kManual,
     kAutomatic,
+};
+
+template <>
+constexpr userver::utils::TrivialBiMap kEnumMap<CollectionMode> = [](auto selector) {
+    return selector().Case("manual", CollectionMode::kManual).Case("automatic", CollectionMode::kAutomatic);
 };
 
 enum class ScheduledChangeAction {
@@ -141,9 +299,22 @@ enum class ScheduledChangeAction {
     kResume,
 };
 
+template <>
+constexpr userver::utils::TrivialBiMap kEnumMap<ScheduledChangeAction> = [](auto selector) {
+    return selector()
+        .Case("cancel", ScheduledChangeAction::kCancel)
+        .Case("pause", ScheduledChangeAction::kPause)
+        .Case("resume", ScheduledChangeAction::kResume);
+};
+
 enum class NotificationSettingType {
     kUrl,
     kEmail,
+};
+
+template <>
+constexpr userver::utils::TrivialBiMap kEnumMap<NotificationSettingType> = [](auto selector) {
+    return selector().Case("url", NotificationSettingType::kUrl).Case("email", NotificationSettingType::kEmail);
 };
 
 enum class ClientTokenStatus {
@@ -151,240 +322,10 @@ enum class ClientTokenStatus {
     kRevoked,
 };
 
-}  // namespace paddle
-
-// CatalogType
 template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::CatalogType> : EnumMappingBase<paddle::CatalogType> {
-    static constexpr DBTypeName postgres_name = "paddle.catalog_type";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector().Case("standard", EnumType::kStandard).Case("custom", EnumType::kCustom);
-    };
+constexpr userver::utils::TrivialBiMap kEnumMap<ClientTokenStatus> = [](auto selector) {
+    return selector().Case("active", ClientTokenStatus::kActive).Case("revoked", ClientTokenStatus::kRevoked);
 };
-
-// Status
-template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::Status> : EnumMappingBase<paddle::Status> {
-    static constexpr DBTypeName postgres_name = "paddle.status";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector().Case("active", EnumType::kActive).Case("archived", EnumType::kArchived);
-    };
-};
-
-// Interval
-template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::Interval> : EnumMappingBase<paddle::Interval> {
-    static constexpr DBTypeName postgres_name = "paddle.interval";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector()
-            .Case("day", EnumType::kDay)
-            .Case("week", EnumType::kWeek)
-            .Case("month", EnumType::kMonth)
-            .Case("year", EnumType::kYear);
-    };
-};
-
-// TransactionStatus
-template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::TransactionStatus>
-    : EnumMappingBase<paddle::TransactionStatus> {
-    static constexpr DBTypeName postgres_name = "paddle.transaction_status";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector()
-            .Case("draft", EnumType::kDraft)
-            .Case("ready", EnumType::kReady)
-            .Case("billed", EnumType::kBilled)
-            .Case("paid", EnumType::kPaid)
-            .Case("completed", EnumType::kCompleted)
-            .Case("canceled", EnumType::kCanceled)
-            .Case("past_due", EnumType::kPastDue);
-    };
-};
-
-// TransactionOrigin
-template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::TransactionOrigin>
-    : EnumMappingBase<paddle::TransactionOrigin> {
-    static constexpr DBTypeName postgres_name = "paddle.transaction_origin";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector()
-            .Case("api", EnumType::kApi)
-            .Case("subscription_charge", EnumType::kSubscriptionCharge)
-            .Case("subscription_payment_method_change", EnumType::kSubscriptionPaymentMethodChange)
-            .Case("subscription_recurring", EnumType::kSubscriptionRecurring)
-            .Case("subscription_update", EnumType::kSubscriptionUpdate)
-            .Case("web", EnumType::kWeb);
-    };
-};
-
-// PaymentAttemptStatus
-template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::PaymentAttemptStatus>
-    : EnumMappingBase<paddle::PaymentAttemptStatus> {
-    static constexpr DBTypeName postgres_name = "paddle.payment_attempt_status";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector()
-            .Case("authorized", EnumType::kAuthorized)
-            .Case("authorized_flagged", EnumType::kAuthorizedFlagged)
-            .Case("canceled", EnumType::kCanceled)
-            .Case("captured", EnumType::kCaptured)
-            .Case("error", EnumType::kError)
-            .Case("action_required", EnumType::kActionRequired)
-            .Case("pending_no_action_required", EnumType::kPendingNoActionRequired)
-            .Case("created", EnumType::kCreated)
-            .Case("unknown", EnumType::kUnknown)
-            .Case("dropped", EnumType::kDropped);
-    };
-};
-
-// PaymentAttemptErrorCode
-template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::PaymentAttemptErrorCode>
-    : EnumMappingBase<paddle::PaymentAttemptErrorCode> {
-    static constexpr DBTypeName postgres_name = "paddle.payment_attempt_error_code";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector()
-            .Case("already_canceled", EnumType::kAlreadyCanceled)
-            .Case("already_refunded", EnumType::kAlreadyRefunded)
-            .Case("authentication_failed", EnumType::kAuthenticationFailed)
-            .Case("blocked_card", EnumType::kBlockedCard)
-            .Case("canceled", EnumType::kCanceled)
-            .Case("declined", EnumType::kDeclined)
-            .Case("declined_not_retryable", EnumType::kDeclinedNotRetryable)
-            .Case("expired_card", EnumType::kExpiredCard)
-            .Case("fraud", EnumType::kFraud)
-            .Case("invalid_amount", EnumType::kInvalidAmount)
-            .Case("invalid_payment_details", EnumType::kInvalidPaymentDetails)
-            .Case("issuer_unavailable", EnumType::kIssuerUnavailable)
-            .Case("not_enough_balance", EnumType::kNotEnoughBalance)
-            .Case("preferred_network_not_supported", EnumType::kPreferredNetworkNotSupported)
-            .Case("psp_error", EnumType::kPspError)
-            .Case("redacted_payment_method", EnumType::kRedactedPaymentMethod)
-            .Case("system_error", EnumType::kSystemError)
-            .Case("transaction_not_permitted", EnumType::kTransactionNotPermitted)
-            .Case("unknown", EnumType::kUnknown);
-    };
-};
-
-// PaymentMethodType
-template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::PaymentMethodType>
-    : EnumMappingBase<paddle::PaymentMethodType> {
-    static constexpr DBTypeName postgres_name = "paddle.payment_method_type";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector()
-            .Case("alipay", EnumType::kAlipay)
-            .Case("apple_pay", EnumType::kApplePay)
-            .Case("bancontact", EnumType::kBancontact)
-            .Case("card", EnumType::kCard)
-            .Case("google_pay", EnumType::kGooglePay)
-            .Case("ideal", EnumType::kIdeal)
-            .Case("korea_local", EnumType::kKoreaLocal)
-            .Case("offline", EnumType::kOffline)
-            .Case("paypal", EnumType::kPaypal)
-            .Case("unknown", EnumType::kUnknown)
-            .Case("wire_transfer", EnumType::kWireTransfer);
-    };
-};
-
-// SubscriptionStatus
-template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::SubscriptionStatus>
-    : EnumMappingBase<paddle::SubscriptionStatus> {
-    static constexpr DBTypeName postgres_name = "paddle.subscription_status";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector()
-            .Case("active", EnumType::kActive)
-            .Case("cancelled", EnumType::kCancelled)
-            .Case("past_due", EnumType::kPastDue)
-            .Case("paused", EnumType::kPaused)
-            .Case("trialing", EnumType::kTrialing);
-    };
-};
-
-// SubscriptionItemStatus
-template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::SubscriptionItemStatus>
-    : EnumMappingBase<paddle::SubscriptionItemStatus> {
-    static constexpr DBTypeName postgres_name = "paddle.subscription_item_status";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector()
-            .Case("active", EnumType::kActive)
-            .Case("inactive", EnumType::kInactive)
-            .Case("trialing", EnumType::kTrialing);
-    };
-};
-
-// CollectionMode
-template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::CollectionMode> : EnumMappingBase<paddle::CollectionMode> {
-    static constexpr DBTypeName postgres_name = "paddle.collection_mode";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector().Case("manual", EnumType::kManual).Case("automatic", EnumType::kAutomatic);
-    };
-};
-
-// ScheduledChangeAction
-template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::ScheduledChangeAction>
-    : EnumMappingBase<paddle::ScheduledChangeAction> {
-    static constexpr DBTypeName postgres_name = "paddle.scheduled_change_action";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector()
-            .Case("cancel", EnumType::kCancel)
-            .Case("pause", EnumType::kPause)
-            .Case("resume", EnumType::kResume);
-    };
-};
-
-// NotificationSettingType
-template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::NotificationSettingType>
-    : EnumMappingBase<paddle::NotificationSettingType> {
-    static constexpr DBTypeName postgres_name = "paddle.notification_setting_type";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector().Case("url", EnumType::kUrl).Case("email", EnumType::kEmail);
-    };
-};
-
-// ClientTokenStatus
-template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::ClientTokenStatus>
-    : EnumMappingBase<paddle::ClientTokenStatus> {
-    static constexpr DBTypeName postgres_name = "paddle.client_token_status";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector().Case("active", EnumType::kActive).Case("revoked", EnumType::kRevoked);
-    };
-};
-
-namespace paddle {
-
-template <typename Enum, typename Format>
-Format SerializeEnum(const Enum& enum_value, userver::formats::serialize::To<Format>) {
-    using EnumMap = userver::storages::postgres::io::detail::EnumerationMap<Enum>;
-    typename Format::Builder builder(EnumMap::GetLiteral(enum_value));
-    return builder.ExtractValue();
-}
-
-template <typename Enum, typename Value>
-Enum ParseEnum(const Value& value, userver::formats::parse::To<Enum>) {
-    using EnumMap = userver::storages::postgres::io::detail::EnumerationMap<Enum>;
-    auto enum_value = value.template As<std::string>();
-    return EnumMap::GetEnumerator(enum_value);
-}
-
-template <typename Enum>
-userver::logging::LogHelper& LogEnum(userver::logging::LogHelper& helper, const Enum& enum_value) {
-    using EnumMap = userver::storages::postgres::io::detail::EnumerationMap<Enum>;
-    helper << EnumMap::GetLiteral(enum_value);
-    return helper;
-}
-
-template <typename Enum>
-auto EnumToString(const Enum& enum_value) {
-    using EnumMap = userver::storages::postgres::io::detail::EnumerationMap<Enum>;
-    return EnumMap::GetLiteral(enum_value);
-}
 
 // CatalogType
 template <typename Format>

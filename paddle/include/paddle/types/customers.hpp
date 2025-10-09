@@ -29,6 +29,14 @@ struct Customer {
     }
 };
 
+struct CustomerUpdateRequest {
+    std::optional<std::string> name;
+    Email email;
+    Status status;
+    JSON custom_data;
+    std::string locale;
+};
+
 struct Address {
     AddressId id;
     CustomerId customer_id;
@@ -117,6 +125,30 @@ Customer Parse(const Value& value, userver::formats::parse::To<Customer>) {
     customer.updated_at = value["updated_at"].template As<Timestamp>();
     customer.import_meta = value["import_meta"].template As<JSON>();
     return customer;
+}
+
+// CustomerUpdateRequest
+
+template <typename Format>
+Format Serialize(const CustomerUpdateRequest& customer_update_request, userver::formats::serialize::To<Format>) {
+    typename Format::Builder builder;
+    builder["name"] = customer_update_request.name;
+    builder["email"] = customer_update_request.email;
+    builder["status"] = customer_update_request.status;
+    builder["custom_data"] = customer_update_request.custom_data;
+    builder["locale"] = customer_update_request.locale;
+    return builder.ExtractValue();
+}
+
+template <typename Value>
+CustomerUpdateRequest Parse(const Value& value, userver::formats::parse::To<CustomerUpdateRequest>) {
+    CustomerUpdateRequest customer_update_request;
+    customer_update_request.name = value["name"].template As<std::optional<std::string>>();
+    customer_update_request.email = value["email"].template As<Email>();
+    customer_update_request.status = value["status"].template As<Status>();
+    customer_update_request.custom_data = value["custom_data"].template As<JSON>();
+    customer_update_request.locale = value["locale"].template As<std::string>();
+    return customer_update_request;
 }
 
 // Address

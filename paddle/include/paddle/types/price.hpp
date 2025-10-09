@@ -40,6 +40,17 @@ struct PriceTemplate {
     // there's import_meta field, but we don't care about it
     Timestamp created_at;
     Timestamp updated_at;
+
+    template <typename T>
+    requires(std::is_same_v<JSON, CustomData>)
+    auto GetCustomData() const -> T {
+        return custom_data.template As<T>();
+    }
+    template <typename T>
+    requires(!std::is_same_v<JSON, CustomData> && std::is_same_v<T, CustomData>)
+    auto GetCustomData() const -> const T& {
+        return custom_data;
+    }
 };
 
 using JsonPrice = PriceTemplate<>;
