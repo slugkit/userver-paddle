@@ -95,6 +95,31 @@ struct Client::Impl {
         }
     }
 
+    template <typename Result, typename Request>
+    Result Patch(std::string_view path, std::string_view operation, const Request& request) const {
+        auto request_body = Serialize(request, userver::formats::serialize::To<JSON>{});
+        auto request_path = fmt::format("{}/{}", base_url, path);
+        auto response = http_client.GetHttpClient()
+                            .CreateRequest()
+                            .patch(request_path, ToString(request_body))
+                            .headers({
+                                {"Authorization", api_key},
+                                {"Paddle-Api-Version", api_version},
+                                {"Content-Type", "application/json"},
+                            })
+                            .timeout(std::chrono::seconds(30))
+                            .perform();
+        ThrowIfNotOk(response, request_path, operation);
+        auto body = response->body();
+        try {
+            auto result = userver::formats::json::FromString(body).template As<Result>();
+            return result;
+        } catch (const std::exception& e) {
+            LOG_ERROR() << fmt::format("Failed to parse response for {}: {}\n{}", operation, e.what(), body);
+            throw;
+        }
+    }
+
     template <typename T>
     std::vector<T> GetAll(std::string_view path, std::int32_t per_page) const {
         std::vector<T> data;
@@ -149,6 +174,33 @@ struct Client::Impl {
                    "pricing-preview", "get price preview", request
         )
             .data;
+    }
+
+    std::vector<customers::Customer> GetAllCustomers() const {
+        return GetAll<customers::Customer>("customers", 200);
+    }
+
+    ResponseWithCursor<customers::Customer> GetCustomers(std::string_view cursor, std::int32_t per_page) const {
+        return GetPaginated<customers::Customer>("customers", cursor, per_page);
+    }
+
+    customers::Customer UpdateCustomer(
+        const CustomerId& customer_id,
+        const customers::CustomerUpdateRequest& customer_update_request
+    ) const {
+        return Patch<SingleObjectResponse<customers::Customer, Meta>>(
+                   "customers/" + ToString(customer_id), "update customer", customer_update_request
+        )
+            .data;
+    }
+
+    std::vector<subscriptions::Subscription> GetAllSubscriptions() const {
+        return GetAll<subscriptions::Subscription>("subscriptions", 200);
+    }
+
+    ResponseWithCursor<subscriptions::Subscription> GetSubscriptions(std::string_view cursor, std::int32_t per_page)
+        const {
+        return GetPaginated<subscriptions::Subscription>("subscriptions", cursor, per_page);
     }
 };
 
@@ -214,6 +266,30 @@ ResponseWithCursor<prices::JsonPrice> Client::GetPrices(std::string_view cursor,
 
 prices::JsonPricePreview Client::GetPricePreview(const prices::PricePreviewRequest& request) const {
     return impl_->GetPricePreview(request);
+}
+
+std::vector<customers::Customer> Client::GetAllCustomers() const {
+    return impl_->GetAllCustomers();
+}
+
+ResponseWithCursor<customers::Customer> Client::GetCustomers(std::string_view cursor, std::int32_t per_page) const {
+    return impl_->GetCustomers(cursor, per_page);
+}
+
+customers::Customer Client::UpdateCustomer(
+    const CustomerId& customer_id,
+    const customers::CustomerUpdateRequest& customer_update_request
+) const {
+    return impl_->UpdateCustomer(customer_id, customer_update_request);
+}
+
+std::vector<subscriptions::Subscription> Client::GetAllSubscriptions() const {
+    return impl_->GetAllSubscriptions();
+}
+
+ResponseWithCursor<subscriptions::Subscription> Client::GetSubscriptions(std::string_view cursor, std::int32_t per_page)
+    const {
+    return impl_->GetSubscriptions(cursor, per_page);
 }
 
 }  // namespace paddle::components

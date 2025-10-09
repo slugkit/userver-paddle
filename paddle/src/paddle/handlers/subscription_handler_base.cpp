@@ -26,6 +26,8 @@ auto SubscriptionHandlerBase::HandleEvent(const JSON& request_json, EventType&& 
             return HandleResumed(std::move(event));
         case events::EventTypeName::kSubscriptionUpdated:
             return HandleUpdated(std::move(event));
+        case events::EventTypeName::kSubscriptionTrialing:
+            return HandleTrialing(std::move(event));
         default:
             LOG_INFO() << "Event handling not implemented for event type: " << event.event_type;
     }
@@ -96,6 +98,14 @@ auto SubscriptionHandlerBase::HandleUpdated(EventType&& event) const -> HandleRe
 }
 
 auto SubscriptionHandlerBase::DoHandleUpdated(EventType&& event) const -> HandleResult {
+    return LogEventIgnored(event);
+}
+
+auto SubscriptionHandlerBase::HandleTrialing(EventType&& event) const -> HandleResult {
+    return DoHandleTrialing(std::move(event));
+}
+
+auto SubscriptionHandlerBase::DoHandleTrialing(EventType&& event) const -> HandleResult {
     return LogEventIgnored(event);
 }
 

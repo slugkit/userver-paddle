@@ -19,7 +19,7 @@ struct PriceHandlerBase::Impl {
     std::vector<components::impl::PriceCacheBase*> price_caches;
 
     Impl(const userver::components::ComponentConfig& config, const userver::components::ComponentContext& context)
-        : price_cache_names(config["update-caches"].As<std::vector<std::string>>()) {
+        : price_cache_names(config["update-caches"].As<std::vector<std::string>>({})) {
         for (auto& price_cache_name : price_cache_names) {
             price_caches.push_back(context.FindComponentOptional<components::impl::PriceCacheBase>(price_cache_name));
         }
@@ -59,11 +59,11 @@ description: Price handler base component
 additionalProperties: false
 properties:
     update-caches:
+        description: Names of the price cache components to update
         type: array
         items:
             type: string
-        description: |
-            Names of the price cache components to update
+            description: Name of the price cache component to update
     )");
 }
 

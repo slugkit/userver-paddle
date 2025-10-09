@@ -27,6 +27,7 @@ public:
     auto HandlePaused(EventType&& event) const -> HandleResult;
     auto HandleResumed(EventType&& event) const -> HandleResult;
     auto HandleUpdated(EventType&& event) const -> HandleResult;
+    auto HandleTrialing(EventType&& event) const -> HandleResult;
 
 private:
     virtual auto DoHandleActivated(EventType&&) const -> HandleResult;
@@ -37,6 +38,7 @@ private:
     virtual auto DoHandlePaused(EventType&&) const -> HandleResult;
     virtual auto DoHandleResumed(EventType&&) const -> HandleResult;
     virtual auto DoHandleUpdated(EventType&&) const -> HandleResult;
+    virtual auto DoHandleTrialing(EventType&&) const -> HandleResult;
 };
 
 }  // namespace paddle::handlers
