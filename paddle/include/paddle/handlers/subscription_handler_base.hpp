@@ -13,6 +13,10 @@ class SubscriptionHandlerBase : public userver::components::ComponentBase {
 public:
     using BaseType = userver::components::ComponentBase;
     using EventType = events::Event<subscriptions::Subscription>;
+    using HandleResult = handlers::HandleResult;
+    using HandleResultStatus = handlers::HandleResultStatus;
+    using TransactionId = paddle::TransactionId;
+
     constexpr static auto kEventCategory = events::EventCategory::kSubscription;
 
     using BaseType::BaseType;

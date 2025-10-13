@@ -3,6 +3,7 @@
 #include <paddle/types/billing.hpp>
 #include <paddle/types/discounts.hpp>
 #include <paddle/types/enums.hpp>
+#include <paddle/types/formats.hpp>
 #include <paddle/types/ids.hpp>
 #include <paddle/types/money.hpp>
 #include <paddle/types/price.hpp>
@@ -26,6 +27,25 @@ struct ManagementUrls {
     std::string cancel;
 };
 
+struct ItemDelta {
+    enum class Type {
+        kAdded,
+        kRemoved,
+        kUpdated,
+        kUnchanged,
+    };
+    Type type;
+    PriceId original_price_id;
+    std::optional<SubscriptionItemStatus> status;
+    std::optional<std::int32_t> quantity;
+    std::optional<bool> recurring;
+    OptionalTimestamp previously_billed_at;
+    OptionalTimestamp next_billed_at;
+    std::optional<TimePeriod> trial_dates;
+    std::optional<PriceId> price_id;
+    std::optional<ProductId> product_id;
+};
+
 // TODO template on custom data for price and product
 struct Item {
     SubscriptionItemStatus status;
@@ -38,9 +58,25 @@ struct Item {
     std::optional<TimePeriod> trial_dates;
     prices::JsonPrice price;
     products::JsonProduct product;
+
+    auto GetDelta(const Item& other) const -> ItemDelta;
+};
+
+struct SubscriptionDelta {
+    std::optional<SubscriptionStatus> status;
+    OptionalTimestamp first_billed_at;
+    OptionalTimestamp next_billed_at;
+    OptionalTimestamp paused_at;
+    OptionalTimestamp canceled_at;
+
+    std::vector<ItemDelta> items;
+
+    auto operator[](const PriceId& price_id) const -> const ItemDelta*;
 };
 
 struct Subscription {
+    using ItemArray = std::vector<Item>;
+
     SubscriptionId id;
     SubscriptionStatus status;
     CustomerId customer_id;
@@ -57,13 +93,26 @@ struct Subscription {
     OptionalDiscountSubscription discount;
     CollectionMode collection_mode;
     OptionalBillingDetails billing_details;
-    TimePeriod current_billing_period;
+    OptionalTimePeriod current_billing_period;
     Duration billing_cycle;
     OptionalScheduledChange scheduled_change;
     ManagementUrls management_urls;
-    std::vector<Item> items;
+    ItemArray items;
+    JSON custom_data;
     JSON external_data;
     // there's import meta, but we don't care about it
+
+    auto GetDelta(const Subscription& other) const -> SubscriptionDelta;
+    auto operator[](const PriceId& price_id) const -> const Item*;
+
+    template <typename T>
+    auto GetCustomData() const -> T {
+        return Parse(custom_data, userver::formats::parse::To<T>{});
+    }
+};
+
+struct ChangeSubscriptionRequest {
+    EffectiveFrom effective_from;
 };
 
 }  // namespace paddle::subscriptions
@@ -167,6 +216,7 @@ Format Serialize(const Subscription& subscription, userver::formats::serialize::
     builder["scheduled_change"] = subscription.scheduled_change;
     builder["management_urls"] = subscription.management_urls;
     builder["items"] = subscription.items;
+    builder["custom_data"] = subscription.custom_data;
     builder["external_data"] = subscription.external_data;
     return builder.ExtractValue();
 }
@@ -190,15 +240,33 @@ Subscription Parse(const Value& value, userver::formats::parse::To<Subscription>
     subscription.discount = value["discount"].template As<OptionalDiscountSubscription>();
     subscription.collection_mode = value["collection_mode"].template As<CollectionMode>();
     subscription.billing_details = value["billing_details"].template As<OptionalBillingDetails>();
-    subscription.current_billing_period = value["current_billing_period"].template As<TimePeriod>();
+    subscription.current_billing_period = value["current_billing_period"].template As<OptionalTimePeriod>();
     subscription.billing_cycle = value["billing_cycle"].template As<Duration>();
     subscription.scheduled_change = value["scheduled_change"].template As<OptionalScheduledChange>();
     if (value.HasMember("management_urls")) {
         subscription.management_urls = value["management_urls"].template As<ManagementUrls>();
     }
     subscription.items = value["items"].template As<std::vector<Item>>();
-    subscription.external_data = value["external_data"].template As<JSON>();
+    subscription.custom_data = value["custom_data"].template As<JSON>();
+    if (value.HasMember("external_data")) {
+        subscription.external_data = value["external_data"].template As<JSON>();
+    }
     return subscription;
+}
+
+// CancelSubscriptionRequest
+template <typename Format>
+Format Serialize(const ChangeSubscriptionRequest& request, userver::formats::serialize::To<Format>) {
+    typename Format::Builder builder;
+    builder["effective_from"] = request.effective_from;
+    return builder.ExtractValue();
+}
+
+template <typename Value>
+ChangeSubscriptionRequest Parse(const Value& value, userver::formats::parse::To<ChangeSubscriptionRequest>) {
+    ChangeSubscriptionRequest request;
+    request.effective_from = value["effective_from"].template As<EffectiveFrom>();
+    return request;
 }
 
 }  // namespace paddle::subscriptions

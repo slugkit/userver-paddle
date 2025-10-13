@@ -7,6 +7,7 @@
 #include <paddle/types/price_preview.hpp>
 #include <paddle/types/product.hpp>
 #include <paddle/types/subscriptions.hpp>
+#include <paddle/types/transactions.hpp>
 
 #include <userver/clients/http/client.hpp>
 #include <userver/components/component_base.hpp>
@@ -82,10 +83,13 @@ public:
     [[nodiscard]] auto GetAllCustomers() const -> std::vector<customers::Customer>;
     [[nodiscard]] auto GetCustomers(std::string_view cursor, std::int32_t per_page = kDefaultPerPage) const
         -> ResponseWithCursor<customers::Customer>;
+    [[nodiscard]] auto GetCustomer(const CustomerId& customer_id) const -> customers::Customer;
     [[nodiscard]] auto UpdateCustomer(
         const CustomerId& customer_id,
         const customers::CustomerUpdateRequest& customer_update_request
     ) const -> customers::Customer;
+    [[nodiscard]] auto GenerateAuthenticationToken(const CustomerId& customer_id
+    ) const -> customers::AuthenticationToken;
     //@}
 
     //@{
@@ -93,8 +97,23 @@ public:
     [[nodiscard]] auto GetAllSubscriptions() const -> std::vector<subscriptions::Subscription>;
     [[nodiscard]] auto GetSubscriptions(std::string_view cursor, std::int32_t per_page = kDefaultPerPage) const
         -> ResponseWithCursor<subscriptions::Subscription>;
+
+    [[nodiscard]] auto ResumeSubscription(
+        const SubscriptionId& subscription_id,
+        EffectiveFrom effective_from = EffectiveFrom::kImmediately
+    ) const -> subscriptions::Subscription;
+    [[nodiscard]] auto CancelSubscription(
+        const SubscriptionId& subscription_id,
+        EffectiveFrom effective_from = EffectiveFrom::kImmediately
+    ) const -> subscriptions::Subscription;
     //@}
 
+    //@{
+    /// @name Transactions
+    [[nodiscard]] auto GetAllTransactions() const -> std::vector<transactions::Transaction>;
+    [[nodiscard]] auto GetTransactions(std::string_view cursor, std::int32_t per_page = kDefaultPerPage) const
+        -> ResponseWithCursor<transactions::Transaction>;
+    //@}
 private:
     constexpr static auto kImplSize = 104UL;
     constexpr static auto kImplAlign = 8UL;

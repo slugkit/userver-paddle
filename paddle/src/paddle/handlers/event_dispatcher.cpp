@@ -96,7 +96,6 @@ struct EventDispatcher::Impl {
         T* handler,
         EventHandlingResultCallback callback
     ) const {
-        using EventType = typename T::EventType;
         auto event_id = (*request_json_ptr)["event_id"].As<EventId>();
         if (handler) {
             if (run_in_background) {
@@ -143,12 +142,13 @@ struct EventDispatcher::Impl {
             auto event = request_json_ptr->As<EventType>();
             HandleResult result = handler->HandleEvent(*request_json_ptr, std::move(event));
             if (callback) {
-                if (result.status == HandleResultStatus::kHandled) {
-                    callback(event_type, event_id, HandleResultStatus::kHandled, result.reason);
-                } else {
+                if (result.status == HandleResultStatus::kIgnored) {
                     if (allow_ignore_events.find(event_type) != allow_ignore_events.end()) {
                         result.status = HandleResultStatus::kHandled;
+                        result.reason = "Don't care about this event";
                     }
+                    callback(event_type, event_id, result.status, result.reason);
+                } else {
                     callback(event_type, event_id, result.status, result.reason);
                 }
             }

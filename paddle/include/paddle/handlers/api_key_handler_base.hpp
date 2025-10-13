@@ -1,6 +1,7 @@
 #pragma once
 
 #include <paddle/handlers/handle_result.hpp>
+#include <paddle/types/api_keys.hpp>
 #include <paddle/types/events.hpp>
 #include <paddle/types/formats.hpp>
 #include <paddle/types/fwd.hpp>
@@ -13,6 +14,8 @@ class ApiKeyHandlerBase : public userver::components::ComponentBase {
 public:
     using BaseType = userver::components::ComponentBase;
     using EventType = events::Event<api_keys::ApiKeyEventPayload>;
+    using HandleResult = handlers::HandleResult;
+    using HandleResultStatus = handlers::HandleResultStatus;
     constexpr static auto kEventCategory = events::EventCategory::kApiKey;
 
     using BaseType::BaseType;

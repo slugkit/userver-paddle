@@ -18,7 +18,7 @@ struct ProductHandlerBase::Impl {
     std::vector<components::impl::ProductCacheBase*> product_caches;
 
     Impl(const userver::components::ComponentConfig& config, const userver::components::ComponentContext& context)
-        : product_cache_names(config["update-caches"].As<std::vector<std::string>>()) {
+        : product_cache_names(config["update-caches"].As<std::vector<std::string>>({})) {
         for (auto& product_cache_name : product_cache_names) {
             product_caches.push_back(
                 context.FindComponentOptional<components::impl::ProductCacheBase>(product_cache_name)

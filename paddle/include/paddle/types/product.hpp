@@ -27,6 +27,11 @@ struct ProductTemplate {
 
     Timestamp created_at;
     Timestamp updated_at;
+
+    template <typename T>
+    auto GetCustomData() const -> T {
+        return Parse(custom_data, userver::formats::parse::To<T>{});
+    }
 };
 
 using JsonProduct = ProductTemplate<JSON>;

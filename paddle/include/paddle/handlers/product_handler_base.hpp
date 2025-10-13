@@ -14,6 +14,9 @@ class ProductHandlerBase : public userver::components::ComponentBase {
 public:
     using BaseType = userver::components::ComponentBase;
     using EventType = events::Event<products::JsonProduct>;
+    using HandleResult = handlers::HandleResult;
+    using HandleResultStatus = handlers::HandleResultStatus;
+
     constexpr static auto kEventCategory = events::EventCategory::kProduct;
 
     ProductHandlerBase(

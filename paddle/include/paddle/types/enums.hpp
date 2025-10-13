@@ -1,51 +1,12 @@
 #pragma once
 
+#include <paddle/types/enum_utils.hpp>
 #include <paddle/types/formats.hpp>
 
 #include <userver/logging/log_helper.hpp>
 #include <userver/utils/trivial_map.hpp>
 
 namespace paddle {
-
-template <typename Enum>
-requires std::is_enum_v<Enum>
-constexpr userver::utils::TrivialBiMap kEnumMap = [](auto) { static_assert(false, "EnumMap not implemented"); };
-
-template <typename Enum>
-auto EnumToString(const Enum& enum_value) -> std::string {
-    using EnumUnderlyingType = std::underlying_type_t<Enum>;
-    auto literal_ptr = kEnumMap<Enum>.TryFind(enum_value);
-    if (literal_ptr.has_value()) {
-        return std::string(*literal_ptr);
-    }
-    throw std::invalid_argument(fmt::format("Invalid enum value: {}", static_cast<EnumUnderlyingType>(enum_value)));
-}
-
-template <typename Enum>
-auto EnumFromString(const std::string& str) -> Enum {
-    auto enum_value_ptr = kEnumMap<Enum>.TryFind(str);
-    if (enum_value_ptr.has_value()) {
-        return *enum_value_ptr;
-    }
-    throw std::invalid_argument(fmt::format("Invalid enum value: {}", str));
-}
-
-template <typename Enum, typename Format>
-auto SerializeEnum(const Enum& enum_value, userver::formats::serialize::To<Format>) -> Format {
-    typename Format::Builder builder(EnumToString(enum_value));
-    return builder.ExtractValue();
-}
-
-template <typename Enum, typename Value>
-auto ParseEnum(const Value& value, userver::formats::parse::To<Enum>) -> Enum {
-    auto enum_value = value.template As<std::string>();
-    return EnumFromString<Enum>(enum_value);
-}
-
-template <typename Enum>
-auto LogEnum(userver::logging::LogHelper& helper, const Enum& enum_value) -> userver::logging::LogHelper& {
-    return helper << EnumToString(enum_value);
-}
 
 enum class CatalogType {
     kStandard,
@@ -263,7 +224,7 @@ template <>
 constexpr userver::utils::TrivialBiMap kEnumMap<SubscriptionStatus> = [](auto selector) {
     return selector()
         .Case("active", SubscriptionStatus::kActive)
-        .Case("cancelled", SubscriptionStatus::kCancelled)
+        .Case("canceled", SubscriptionStatus::kCancelled)
         .Case("past_due", SubscriptionStatus::kPastDue)
         .Case("paused", SubscriptionStatus::kPaused)
         .Case("trialing", SubscriptionStatus::kTrialing);
@@ -327,159 +288,16 @@ constexpr userver::utils::TrivialBiMap kEnumMap<ClientTokenStatus> = [](auto sel
     return selector().Case("active", ClientTokenStatus::kActive).Case("revoked", ClientTokenStatus::kRevoked);
 };
 
-// CatalogType
-template <typename Format>
-Format Serialize(const CatalogType& type, userver::formats::serialize::To<Format> to) {
-    return SerializeEnum(type, to);
-}
+enum class EffectiveFrom {
+    kImmediately,
+    kNextBillingPeriod,
+};
 
-template <typename Value>
-CatalogType Parse(const Value& value, userver::formats::parse::To<CatalogType> to) {
-    return ParseEnum(value, to);
-}
-
-// Status
-template <typename Format>
-Format Serialize(const Status& status, userver::formats::serialize::To<Format> to) {
-    return SerializeEnum(status, to);
-}
-
-template <typename Value>
-Status Parse(const Value& value, userver::formats::parse::To<Status> to) {
-    return ParseEnum(value, to);
-}
-
-// Interval
-template <typename Format>
-Format Serialize(const Interval& interval, userver::formats::serialize::To<Format> to) {
-    return SerializeEnum(interval, to);
-}
-
-template <typename Value>
-Interval Parse(const Value& value, userver::formats::parse::To<Interval> to) {
-    return ParseEnum(value, to);
-}
-
-// TransactionStatus
-template <typename Format>
-Format Serialize(const TransactionStatus& status, userver::formats::serialize::To<Format> to) {
-    return SerializeEnum(status, to);
-}
-
-template <typename Value>
-TransactionStatus Parse(const Value& value, userver::formats::parse::To<TransactionStatus> to) {
-    return ParseEnum(value, to);
-}
-
-// TransactionOrigin
-template <typename Format>
-Format Serialize(const TransactionOrigin& origin, userver::formats::serialize::To<Format> to) {
-    return SerializeEnum(origin, to);
-}
-
-template <typename Value>
-TransactionOrigin Parse(const Value& value, userver::formats::parse::To<TransactionOrigin> to) {
-    return ParseEnum(value, to);
-}
-
-// PaymentAttemptStatus
-template <typename Format>
-Format Serialize(const PaymentAttemptStatus& status, userver::formats::serialize::To<Format> to) {
-    return SerializeEnum(status, to);
-}
-
-template <typename Value>
-PaymentAttemptStatus Parse(const Value& value, userver::formats::parse::To<PaymentAttemptStatus> to) {
-    return ParseEnum(value, to);
-}
-
-// PaymentAttemptErrorCode
-template <typename Format>
-Format Serialize(const PaymentAttemptErrorCode& error_code, userver::formats::serialize::To<Format> to) {
-    return SerializeEnum(error_code, to);
-}
-
-template <typename Value>
-PaymentAttemptErrorCode Parse(const Value& value, userver::formats::parse::To<PaymentAttemptErrorCode> to) {
-    return ParseEnum(value, to);
-}
-
-// PaymentMethodType
-template <typename Format>
-Format Serialize(const PaymentMethodType& type, userver::formats::serialize::To<Format> to) {
-    return SerializeEnum(type, to);
-}
-
-template <typename Value>
-PaymentMethodType Parse(const Value& value, userver::formats::parse::To<PaymentMethodType> to) {
-    return ParseEnum(value, to);
-}
-
-// SubscriptionStatus
-template <typename Format>
-Format Serialize(const SubscriptionStatus& status, userver::formats::serialize::To<Format> to) {
-    return SerializeEnum(status, to);
-}
-
-template <typename Value>
-SubscriptionStatus Parse(const Value& value, userver::formats::parse::To<SubscriptionStatus> to) {
-    return ParseEnum(value, to);
-}
-
-// SubscriptionItemStatus
-template <typename Format>
-Format Serialize(const SubscriptionItemStatus& status, userver::formats::serialize::To<Format> to) {
-    return SerializeEnum(status, to);
-}
-
-template <typename Value>
-SubscriptionItemStatus Parse(const Value& value, userver::formats::parse::To<SubscriptionItemStatus> to) {
-    return ParseEnum(value, to);
-}
-
-// CollectionMode
-template <typename Format>
-Format Serialize(const CollectionMode& mode, userver::formats::serialize::To<Format> to) {
-    return SerializeEnum(mode, to);
-}
-
-template <typename Value>
-CollectionMode Parse(const Value& value, userver::formats::parse::To<CollectionMode> to) {
-    return ParseEnum(value, to);
-}
-
-// ScheduledChangeAction
-template <typename Format>
-Format Serialize(const ScheduledChangeAction& action, userver::formats::serialize::To<Format> to) {
-    return SerializeEnum(action, to);
-}
-
-template <typename Value>
-ScheduledChangeAction Parse(const Value& value, userver::formats::parse::To<ScheduledChangeAction> to) {
-    return ParseEnum(value, to);
-}
-
-// NotificationSettingType
-template <typename Format>
-Format Serialize(const NotificationSettingType& type, userver::formats::serialize::To<Format> to) {
-    return SerializeEnum(type, to);
-}
-
-template <typename Value>
-NotificationSettingType Parse(const Value& value, userver::formats::parse::To<NotificationSettingType> to) {
-    return ParseEnum(value, to);
-}
-
-// ClientTokenStatus
-
-template <typename Format>
-Format Serialize(const ClientTokenStatus& status, userver::formats::serialize::To<Format> to) {
-    return SerializeEnum(status, to);
-}
-
-template <typename Value>
-ClientTokenStatus Parse(const Value& value, userver::formats::parse::To<ClientTokenStatus> to) {
-    return ParseEnum(value, to);
-}
+template <>
+constexpr userver::utils::TrivialBiMap kEnumMap<EffectiveFrom> = [](auto selector) {
+    return selector()
+        .Case("immediately", EffectiveFrom::kImmediately)
+        .Case("next_billing_period", EffectiveFrom::kNextBillingPeriod);
+};
 
 }  // namespace paddle

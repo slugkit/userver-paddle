@@ -91,6 +91,13 @@ struct Business {
     }
 };
 
+struct AuthenticationToken {
+    std::string token;
+    Timestamp expires_at;
+
+    auto operator==(const AuthenticationToken& other) const -> bool = default;
+};
+
 }  // namespace paddle::customers
 
 namespace paddle::customers {
@@ -243,6 +250,24 @@ Business Parse(const Value& value, userver::formats::parse::To<Business>) {
     business.custom_data = value["custom_data"].template As<JSON>();
     business.import_meta = value["import_meta"].template As<JSON>();
     return business;
+}
+
+// AuthenticationToken
+
+template <typename Format>
+Format Serialize(const AuthenticationToken& authentication_token, userver::formats::serialize::To<Format>) {
+    typename Format::Builder builder;
+    builder["token"] = authentication_token.token;
+    builder["expires_at"] = authentication_token.expires_at;
+    return builder.ExtractValue();
+}
+
+template <typename Value>
+AuthenticationToken Parse(const Value& value, userver::formats::parse::To<AuthenticationToken>) {
+    AuthenticationToken authentication_token;
+    authentication_token.token = value["token"].template As<std::string>();
+    authentication_token.expires_at = value["expires_at"].template As<Timestamp>();
+    return authentication_token;
 }
 
 }  // namespace paddle::customers

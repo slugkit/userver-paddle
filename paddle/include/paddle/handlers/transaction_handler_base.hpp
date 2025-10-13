@@ -3,6 +3,7 @@
 #include <paddle/types/events.hpp>
 #include <paddle/types/formats.hpp>
 #include <paddle/types/fwd.hpp>
+#include <paddle/types/transactions.hpp>
 
 #include <userver/components/component_base.hpp>
 
@@ -12,6 +13,9 @@ class TransactionHandlerBase : public userver::components::ComponentBase {
 public:
     using BaseType = userver::components::ComponentBase;
     using EventType = events::Event<transactions::Transaction>;
+    using HandleResult = handlers::HandleResult;
+    using HandleResultStatus = handlers::HandleResultStatus;
+
     constexpr static auto kEventCategory = events::EventCategory::kTransaction;
 
     using BaseType::BaseType;

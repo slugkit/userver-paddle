@@ -1,7 +1,7 @@
 #pragma once
 
 #include <paddle/handlers/handle_result.hpp>
-#include <paddle/types/enums.hpp>
+#include <paddle/types/enum_utils.hpp>
 #include <paddle/types/ids.hpp>
 #include <paddle/types/timestamp.hpp>
 
@@ -10,6 +10,9 @@
 #include <userver/logging/log.hpp>
 
 namespace paddle::events {
+
+using ::paddle::Parse;
+using ::paddle::Serialize;
 
 enum class EventTypeName {
     // Address events
@@ -274,45 +277,12 @@ constexpr userver::utils::TrivialBiMap kEnumMap<paddle::events::TrafficSource> =
 
 namespace paddle::events {
 
-// EventTypeName
-template <typename Format>
-Format Serialize(const EventTypeName& type, userver::formats::serialize::To<Format> to) {
-    return SerializeEnum(type, to);
-}
-
-template <typename Value>
-EventTypeName Parse(const Value& value, userver::formats::parse::To<EventTypeName> to) {
-    return ParseEnum(value, to);
-}
-
 inline userver::logging::LogHelper& operator<<(userver::logging::LogHelper& helper, const EventTypeName& type) {
     return LogEnum(helper, type);
 }
 
-// EventCategory
-template <typename Format>
-Format Serialize(const EventCategory& category, userver::formats::serialize::To<Format> to) {
-    return SerializeEnum(category, to);
-}
-
-template <typename Value>
-EventCategory Parse(const Value& value, userver::formats::parse::To<EventCategory> to) {
-    return ParseEnum(value, to);
-}
-
 inline userver::logging::LogHelper& operator<<(userver::logging::LogHelper& helper, const EventCategory& category) {
     return LogEnum(helper, category);
-}
-
-// TrafficSource
-template <typename Format>
-Format Serialize(const TrafficSource& source, userver::formats::serialize::To<Format> to) {
-    return SerializeEnum(source, to);
-}
-
-template <typename Value>
-TrafficSource Parse(const Value& value, userver::formats::parse::To<TrafficSource> to) {
-    return ParseEnum(value, to);
 }
 
 // EventType
