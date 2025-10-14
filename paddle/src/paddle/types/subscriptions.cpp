@@ -4,6 +4,21 @@
 
 namespace paddle::subscriptions {
 
+auto Item::GetDelta() const -> ItemDelta {
+    ItemDelta delta;
+    delta.type = ItemDelta::Type::kAdded;
+    delta.original_price_id = price.id;
+    delta.status = status;
+    delta.quantity = quantity;
+    delta.recurring = recurring;
+    delta.previously_billed_at = previously_billed_at;
+    delta.next_billed_at = next_billed_at;
+    delta.trial_dates = trial_dates;
+    delta.price_id = price.id;
+    delta.product_id = product.id;
+    return delta;
+}
+
 auto Item::GetDelta(const Item& other) const -> ItemDelta {
     ItemDelta delta;
     delta.type = ItemDelta::Type::kUnchanged;
@@ -53,6 +68,23 @@ auto SubscriptionDelta::operator[](const PriceId& price_id) const -> const ItemD
     return &*iter;
 }
 
+auto Subscription::GetDelta() const -> SubscriptionDelta {
+    SubscriptionDelta delta;
+
+    delta.status = status;
+    delta.first_billed_at = first_billed_at;
+    delta.next_billed_at = next_billed_at;
+    delta.paused_at = paused_at;
+    delta.canceled_at = canceled_at;
+
+    delta.items.reserve(items.size());
+    for (const auto& item : items) {
+        delta.items.push_back(item.GetDelta());
+        delta.added_items.push_back(&delta.items.back());
+    }
+    return delta;
+}
+
 auto Subscription::GetDelta(const Subscription& other) const -> SubscriptionDelta {
     SubscriptionDelta delta;
     if (status != other.status) {
@@ -70,6 +102,7 @@ auto Subscription::GetDelta(const Subscription& other) const -> SubscriptionDelt
     if (canceled_at != other.canceled_at) {
         delta.canceled_at = other.canceled_at;
     }
+    delta.items.reserve(items.size() + other.items.size());
     for (const auto& item : items) {
         if (other[item.price.id] == nullptr) {
             delta.items.push_back(ItemDelta{
@@ -84,8 +117,12 @@ auto Subscription::GetDelta(const Subscription& other) const -> SubscriptionDelt
                 item.price.id,
                 item.product.id
             });
+            delta.removed_items.push_back(&delta.items.back());
         } else {
             delta.items.push_back(item.GetDelta(*other[item.price.id]));
+            if (delta.items.back().type == ItemDelta::Type::kUpdated) {
+                delta.updated_items.push_back(&delta.items.back());
+            }
         }
     }
     for (const auto& item : other.items) {
@@ -102,9 +139,26 @@ auto Subscription::GetDelta(const Subscription& other) const -> SubscriptionDelt
                 item.price.id,
                 item.product.id
             });
+            delta.added_items.push_back(&delta.items.back());
         }
     }
     return delta;
+}
+
+auto SubscriptionDelta::HasChanges() const -> bool {
+    return !removed_items.empty() || !added_items.empty() || !updated_items.empty();
+}
+
+auto SubscriptionDelta::HasRemovedItems() const -> bool {
+    return !removed_items.empty();
+}
+
+auto SubscriptionDelta::HasAddedItems() const -> bool {
+    return !added_items.empty();
+}
+
+auto SubscriptionDelta::HasUpdatedItems() const -> bool {
+    return !updated_items.empty();
 }
 
 auto Subscription::operator[](const PriceId& price_id) const -> const Item* {

@@ -92,7 +92,7 @@ struct Business {
 };
 
 struct AuthenticationToken {
-    std::string token;
+    std::string customer_auth_token;
     Timestamp expires_at;
 
     auto operator==(const AuthenticationToken& other) const -> bool = default;
@@ -257,7 +257,7 @@ Business Parse(const Value& value, userver::formats::parse::To<Business>) {
 template <typename Format>
 Format Serialize(const AuthenticationToken& authentication_token, userver::formats::serialize::To<Format>) {
     typename Format::Builder builder;
-    builder["token"] = authentication_token.token;
+    builder["customer_auth_token"] = authentication_token.customer_auth_token;
     builder["expires_at"] = authentication_token.expires_at;
     return builder.ExtractValue();
 }
@@ -265,7 +265,7 @@ Format Serialize(const AuthenticationToken& authentication_token, userver::forma
 template <typename Value>
 AuthenticationToken Parse(const Value& value, userver::formats::parse::To<AuthenticationToken>) {
     AuthenticationToken authentication_token;
-    authentication_token.token = value["token"].template As<std::string>();
+    authentication_token.customer_auth_token = value["customer_auth_token"].template As<std::string>();
     authentication_token.expires_at = value["expires_at"].template As<Timestamp>();
     return authentication_token;
 }

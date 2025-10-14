@@ -59,6 +59,7 @@ struct Item {
     prices::JsonPrice price;
     products::JsonProduct product;
 
+    auto GetDelta() const -> ItemDelta;
     auto GetDelta(const Item& other) const -> ItemDelta;
 };
 
@@ -70,8 +71,15 @@ struct SubscriptionDelta {
     OptionalTimestamp canceled_at;
 
     std::vector<ItemDelta> items;
+    std::vector<ItemDelta*> removed_items;
+    std::vector<ItemDelta*> added_items;
+    std::vector<ItemDelta*> updated_items;
 
     auto operator[](const PriceId& price_id) const -> const ItemDelta*;
+    auto HasChanges() const -> bool;
+    auto HasRemovedItems() const -> bool;
+    auto HasAddedItems() const -> bool;
+    auto HasUpdatedItems() const -> bool;
 };
 
 struct Subscription {
@@ -102,6 +110,9 @@ struct Subscription {
     JSON external_data;
     // there's import meta, but we don't care about it
 
+    // initial incremental delta
+    auto GetDelta() const -> SubscriptionDelta;
+    // delta from another subscription
     auto GetDelta(const Subscription& other) const -> SubscriptionDelta;
     auto operator[](const PriceId& price_id) const -> const Item*;
 
