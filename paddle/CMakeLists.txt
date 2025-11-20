@@ -39,6 +39,8 @@ set(PADDLE_SRC
     include/paddle/handlers/handlers.hpp
 
     include/paddle/handlers/webhook_handler.hpp
+    include/paddle/handlers/event_sink_base.hpp
+    include/paddle/handlers/event_dispatcher.hpp
 
     src/paddle/auth/signature.cpp
     
@@ -68,13 +70,14 @@ set(PADDLE_SRC
     src/paddle/handlers/api_key_handler_base.cpp
     src/paddle/handlers/client_token_handler_base.cpp
     src/paddle/handlers/handlers.cpp
-
+    
     src/paddle/handlers/webhook_handler.cpp
+    src/paddle/handlers/event_dispatcher.cpp
 
 )
 
 add_library(paddle_client OBJECT ${PADDLE_SRC})
-target_link_libraries(paddle_client PRIVATE userver::core userver::postgresql)
+target_link_libraries(paddle_client PRIVATE userver::core)
 target_include_directories(paddle_client PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(paddle_client PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 

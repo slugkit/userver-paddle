@@ -10,45 +10,46 @@
 
 namespace paddle::handlers {
 
-auto ClientTokenHandlerBase::HandleEvent([[maybe_unused]] const JSON& request_json, EventType&& event) const -> void {
+auto ClientTokenHandlerBase::HandleEvent([[maybe_unused]] const JSON& request_json, EventType&& event) const
+    -> HandleResult {
     LOG_INFO() << "Handling event: " << event.event_type << " " << event.event_id;
     switch (event.event_type) {
         case events::EventTypeName::kClientTokenCreated:
-            HandleCreated(std::move(event));
-            break;
+            return HandleCreated(std::move(event));
         case events::EventTypeName::kClientTokenRevoked:
-            HandleRevoked(std::move(event));
-            break;
+            return HandleRevoked(std::move(event));
         case events::EventTypeName::kClientTokenUpdated:
-            HandleUpdated(std::move(event));
-            break;
+            return HandleUpdated(std::move(event));
         default:
             LOG_INFO() << "Event handling not implemented for event type: " << event.event_type;
     }
+    return HandleResult{
+        HandleResultStatus::kIgnored, "Event handling not implemented for event type: " + EnumToString(event.event_type)
+    };
 }
 
-auto ClientTokenHandlerBase::HandleCreated(EventType&& event) const -> void {
-    DoHandleCreated(std::move(event));
+auto ClientTokenHandlerBase::HandleCreated(EventType&& event) const -> HandleResult {
+    return DoHandleCreated(std::move(event));
 }
 
-auto ClientTokenHandlerBase::DoHandleCreated(EventType&& event) const -> void {
-    LogEventIgnored(event);
+auto ClientTokenHandlerBase::DoHandleCreated(EventType&& event) const -> HandleResult {
+    return LogEventIgnored(event);
 }
 
-auto ClientTokenHandlerBase::HandleRevoked(EventType&& event) const -> void {
-    DoHandleRevoked(std::move(event));
+auto ClientTokenHandlerBase::HandleRevoked(EventType&& event) const -> HandleResult {
+    return DoHandleRevoked(std::move(event));
 }
 
-auto ClientTokenHandlerBase::DoHandleRevoked(EventType&& event) const -> void {
-    LogEventIgnored(event);
+auto ClientTokenHandlerBase::DoHandleRevoked(EventType&& event) const -> HandleResult {
+    return LogEventIgnored(event);
 }
 
-auto ClientTokenHandlerBase::HandleUpdated(EventType&& event) const -> void {
-    DoHandleUpdated(std::move(event));
+auto ClientTokenHandlerBase::HandleUpdated(EventType&& event) const -> HandleResult {
+    return DoHandleUpdated(std::move(event));
 }
 
-auto ClientTokenHandlerBase::DoHandleUpdated(EventType&& event) const -> void {
-    LogEventIgnored(event);
+auto ClientTokenHandlerBase::DoHandleUpdated(EventType&& event) const -> HandleResult {
+    return LogEventIgnored(event);
 }
 
 }  // namespace paddle::handlers

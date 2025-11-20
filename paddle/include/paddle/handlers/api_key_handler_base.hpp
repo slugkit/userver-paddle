@@ -1,5 +1,7 @@
 #pragma once
 
+#include <paddle/handlers/handle_result.hpp>
+#include <paddle/types/api_keys.hpp>
 #include <paddle/types/events.hpp>
 #include <paddle/types/formats.hpp>
 #include <paddle/types/fwd.hpp>
@@ -12,24 +14,26 @@ class ApiKeyHandlerBase : public userver::components::ComponentBase {
 public:
     using BaseType = userver::components::ComponentBase;
     using EventType = events::Event<api_keys::ApiKeyEventPayload>;
+    using HandleResult = handlers::HandleResult;
+    using HandleResultStatus = handlers::HandleResultStatus;
     constexpr static auto kEventCategory = events::EventCategory::kApiKey;
 
     using BaseType::BaseType;
 
-    auto HandleEvent(const JSON& request_json, EventType&& event) const -> void;
+    auto HandleEvent(const JSON& request_json, EventType&& event) const -> HandleResult;
 
-    auto HandleCreated(EventType&& event) const -> void;
-    auto HandleExpired(EventType&& event) const -> void;
-    auto HandleExpiring(EventType&& event) const -> void;
-    auto HandleRevoked(EventType&& event) const -> void;
-    auto HandleUpdated(EventType&& event) const -> void;
+    auto HandleCreated(EventType&& event) const -> HandleResult;
+    auto HandleExpired(EventType&& event) const -> HandleResult;
+    auto HandleExpiring(EventType&& event) const -> HandleResult;
+    auto HandleRevoked(EventType&& event) const -> HandleResult;
+    auto HandleUpdated(EventType&& event) const -> HandleResult;
 
 private:
-    virtual auto DoHandleCreated(EventType&&) const -> void;
-    virtual auto DoHandleExpired(EventType&&) const -> void;
-    virtual auto DoHandleExpiring(EventType&&) const -> void;
-    virtual auto DoHandleRevoked(EventType&&) const -> void;
-    virtual auto DoHandleUpdated(EventType&&) const -> void;
+    virtual auto DoHandleCreated(EventType&&) const -> HandleResult;
+    virtual auto DoHandleExpired(EventType&&) const -> HandleResult;
+    virtual auto DoHandleExpiring(EventType&&) const -> HandleResult;
+    virtual auto DoHandleRevoked(EventType&&) const -> HandleResult;
+    virtual auto DoHandleUpdated(EventType&&) const -> HandleResult;
 };
 
 }  // namespace paddle::handlers

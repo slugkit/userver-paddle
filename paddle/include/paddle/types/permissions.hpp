@@ -60,44 +60,44 @@ enum class Permission {
 
 }  // namespace paddle::permissions
 
+namespace paddle {
+
 template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::permissions::Permission>
-    : EnumMappingBase<paddle::permissions::Permission> {
-    static constexpr DBTypeName postgres_name = "paddle.permission";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector()
-            .Case("address.read", EnumType::kAddressRead)
-            .Case("address.write", EnumType::kAddressWrite)
-            .Case("adjustment.read", EnumType::kAdjustmentRead)
-            .Case("adjustment.write", EnumType::kAdjustmentWrite)
-            .Case("business.read", EnumType::kBusinessRead)
-            .Case("business.write", EnumType::kBusinessWrite)
-            .Case("customer.read", EnumType::kCustomerRead)
-            .Case("customer.write", EnumType::kCustomerWrite)
-            .Case("customer_auth_token.write", EnumType::kCustomerAuthTokenWrite)
-            .Case("customer_portal_session.write", EnumType::kCustomerPortalSessionWrite)
-            .Case("discount.read", EnumType::kDiscountRead)
-            .Case("discount.write", EnumType::kDiscountWrite)
-            .Case("notification.read", EnumType::kNotificationRead)
-            .Case("notification.write", EnumType::kNotificationWrite)
-            .Case("notification_setting.read", EnumType::kNotificationSettingRead)
-            .Case("notification_setting.write", EnumType::kNotificationSettingWrite)
-            .Case("notification_simulation.read", EnumType::kNotificationSimulationRead)
-            .Case("notification_simulation.write", EnumType::kNotificationSimulationWrite)
-            .Case("payment_method.read", EnumType::kPaymentMethodRead)
-            .Case("payment_method.write", EnumType::kPaymentMethodWrite)
-            .Case("price.read", EnumType::kPriceRead)
-            .Case("price.write", EnumType::kPriceWrite)
-            .Case("product.read", EnumType::kProductRead)
-            .Case("product.write", EnumType::kProductWrite)
-            .Case("report.read", EnumType::kReportRead)
-            .Case("report.write", EnumType::kReportWrite)
-            .Case("subscription.read", EnumType::kSubscriptionRead)
-            .Case("subscription.write", EnumType::kSubscriptionWrite)
-            .Case("transaction.read", EnumType::kTransactionRead)
-            .Case("transaction.write", EnumType::kTransactionWrite);
-    };
+constexpr userver::utils::TrivialBiMap kEnumMap<paddle::permissions::Permission> = [](auto selector) {
+    return selector()
+        .Case("address.read", paddle::permissions::Permission::kAddressRead)
+        .Case("address.write", paddle::permissions::Permission::kAddressWrite)
+        .Case("adjustment.read", paddle::permissions::Permission::kAdjustmentRead)
+        .Case("adjustment.write", paddle::permissions::Permission::kAdjustmentWrite)
+        .Case("business.read", paddle::permissions::Permission::kBusinessRead)
+        .Case("business.write", paddle::permissions::Permission::kBusinessWrite)
+        .Case("customer.read", paddle::permissions::Permission::kCustomerRead)
+        .Case("customer.write", paddle::permissions::Permission::kCustomerWrite)
+        .Case("customer_auth_token.write", paddle::permissions::Permission::kCustomerAuthTokenWrite)
+        .Case("customer_portal_session.write", paddle::permissions::Permission::kCustomerPortalSessionWrite)
+        .Case("discount.read", paddle::permissions::Permission::kDiscountRead)
+        .Case("discount.write", paddle::permissions::Permission::kDiscountWrite)
+        .Case("notification.read", paddle::permissions::Permission::kNotificationRead)
+        .Case("notification.write", paddle::permissions::Permission::kNotificationWrite)
+        .Case("notification_setting.read", paddle::permissions::Permission::kNotificationSettingRead)
+        .Case("notification_setting.write", paddle::permissions::Permission::kNotificationSettingWrite)
+        .Case("notification_simulation.read", paddle::permissions::Permission::kNotificationSimulationRead)
+        .Case("notification_simulation.write", paddle::permissions::Permission::kNotificationSimulationWrite)
+        .Case("payment_method.read", paddle::permissions::Permission::kPaymentMethodRead)
+        .Case("payment_method.write", paddle::permissions::Permission::kPaymentMethodWrite)
+        .Case("price.read", paddle::permissions::Permission::kPriceRead)
+        .Case("price.write", paddle::permissions::Permission::kPriceWrite)
+        .Case("product.read", paddle::permissions::Permission::kProductRead)
+        .Case("product.write", paddle::permissions::Permission::kProductWrite)
+        .Case("report.read", paddle::permissions::Permission::kReportRead)
+        .Case("report.write", paddle::permissions::Permission::kReportWrite)
+        .Case("subscription.read", paddle::permissions::Permission::kSubscriptionRead)
+        .Case("subscription.write", paddle::permissions::Permission::kSubscriptionWrite)
+        .Case("transaction.read", paddle::permissions::Permission::kTransactionRead)
+        .Case("transaction.write", paddle::permissions::Permission::kTransactionWrite);
 };
+
+}  // namespace paddle
 
 namespace paddle::permissions {
 

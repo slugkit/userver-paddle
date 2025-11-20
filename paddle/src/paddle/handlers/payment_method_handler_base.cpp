@@ -11,34 +11,36 @@
 
 namespace paddle::handlers {
 
-auto PaymentMethodHandlerBase::HandleEvent([[maybe_unused]] const JSON& request_json, EventType&& event) const -> void {
+auto PaymentMethodHandlerBase::HandleEvent([[maybe_unused]] const JSON& request_json, EventType&& event) const
+    -> HandleResult {
     LOG_INFO() << "Handling event: " << event.event_type << " " << event.event_id;
     switch (event.event_type) {
         case events::EventTypeName::kPaymentMethodSaved:
-            HandleSaved(std::move(event));
-            break;
+            return HandleSaved(std::move(event));
         case events::EventTypeName::kPaymentMethodDeleted:
-            HandleDeleted(std::move(event));
-            break;
+            return HandleDeleted(std::move(event));
         default:
             LOG_INFO() << "Event handling not implemented for event type: " << event.event_type;
     }
+    return HandleResult{
+        HandleResultStatus::kIgnored, "Event handling not implemented for event type: " + EnumToString(event.event_type)
+    };
 }
 
-auto PaymentMethodHandlerBase::HandleSaved(EventType&& event) const -> void {
-    DoHandleSaved(std::move(event));
+auto PaymentMethodHandlerBase::HandleSaved(EventType&& event) const -> HandleResult {
+    return DoHandleSaved(std::move(event));
 }
 
-auto PaymentMethodHandlerBase::DoHandleSaved(EventType&& event) const -> void {
-    LogEventIgnored(event);
+auto PaymentMethodHandlerBase::DoHandleSaved(EventType&& event) const -> HandleResult {
+    return LogEventIgnored(event);
 }
 
-auto PaymentMethodHandlerBase::HandleDeleted(EventType&& event) const -> void {
-    DoHandleDeleted(std::move(event));
+auto PaymentMethodHandlerBase::HandleDeleted(EventType&& event) const -> HandleResult {
+    return DoHandleDeleted(std::move(event));
 }
 
-auto PaymentMethodHandlerBase::DoHandleDeleted(EventType&& event) const -> void {
-    LogEventIgnored(event);
+auto PaymentMethodHandlerBase::DoHandleDeleted(EventType&& event) const -> HandleResult {
+    return LogEventIgnored(event);
 }
 
 }  // namespace paddle::handlers

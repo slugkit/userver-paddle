@@ -14,6 +14,9 @@ class ProductHandlerBase : public userver::components::ComponentBase {
 public:
     using BaseType = userver::components::ComponentBase;
     using EventType = events::Event<products::JsonProduct>;
+    using HandleResult = handlers::HandleResult;
+    using HandleResultStatus = handlers::HandleResultStatus;
+
     constexpr static auto kEventCategory = events::EventCategory::kProduct;
 
     ProductHandlerBase(
@@ -24,16 +27,16 @@ public:
 
     static auto GetStaticConfigSchema() -> userver::yaml_config::Schema;
 
-    auto HandleEvent(const JSON& request_json, EventType&& event) const -> void;
+    auto HandleEvent(const JSON& request_json, EventType&& event) const -> HandleResult;
 
-    auto HandleCreated(EventType&& event) const -> void;
-    auto HandleImported(EventType&& event) const -> void;
-    auto HandleUpdated(EventType&& event) const -> void;
+    auto HandleCreated(EventType&& event) const -> HandleResult;
+    auto HandleImported(EventType&& event) const -> HandleResult;
+    auto HandleUpdated(EventType&& event) const -> HandleResult;
 
 private:
-    virtual auto DoHandleCreated(EventType&&) const -> void;
-    virtual auto DoHandleImported(EventType&&) const -> void;
-    virtual auto DoHandleUpdated(EventType&&) const -> void;
+    virtual auto DoHandleCreated(EventType&&) const -> HandleResult;
+    virtual auto DoHandleImported(EventType&&) const -> HandleResult;
+    virtual auto DoHandleUpdated(EventType&&) const -> HandleResult;
 
 private:
     constexpr static auto kImplSize = 48UL;

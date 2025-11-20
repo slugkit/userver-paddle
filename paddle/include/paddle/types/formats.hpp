@@ -14,6 +14,7 @@
 namespace paddle {
 
 using JSON = userver::formats::json::Value;
+using JSONPtr = std::shared_ptr<JSON>;
 
 template <typename T>
 concept FormatType = requires(T) { typename T::Builder; };

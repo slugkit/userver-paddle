@@ -12,12 +12,15 @@ using OptionalTimestamp = std::optional<Timestamp>;
 struct TimePeriod {
     Timestamp starts_at;
     Timestamp ends_at;
+
+    auto operator==(const TimePeriod& other) const -> bool = default;
 };
+
+using OptionalTimePeriod = std::optional<TimePeriod>;
 
 }  // namespace paddle
 
 namespace paddle {
-
 // TimePeriod
 template <typename Format>
 Format Serialize(const TimePeriod& time_period, userver::formats::serialize::To<Format>) {

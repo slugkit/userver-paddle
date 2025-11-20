@@ -27,17 +27,17 @@ struct ApiKeyEventPayload {
 
 }  // namespace paddle::api_keys
 
+namespace paddle {
+
 template <>
-struct userver::storages::postgres::io::CppToUserPg<paddle::api_keys::Status>
-    : EnumMappingBase<paddle::api_keys::Status> {
-    static constexpr DBTypeName postgres_name = "paddle.api_key_status";
-    static constexpr userver::utils::TrivialBiMap enumerators = [](auto selector) {
-        return selector()
-            .Case("active", EnumType::kActive)
-            .Case("expired", EnumType::kExpired)
-            .Case("revoked", EnumType::kRevoked);
-    };
+constexpr userver::utils::TrivialBiMap kEnumMap<paddle::api_keys::Status> = [](auto selector) {
+    return selector()
+        .Case("active", paddle::api_keys::Status::kActive)
+        .Case("expired", paddle::api_keys::Status::kExpired)
+        .Case("revoked", paddle::api_keys::Status::kRevoked);
 };
+
+}  // namespace paddle
 
 namespace paddle::api_keys {
 

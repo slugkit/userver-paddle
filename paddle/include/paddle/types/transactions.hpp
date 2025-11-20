@@ -267,6 +267,11 @@ struct Transaction {
     Timestamp updated_at;
     OptionalTimestamp billed_at;
     OptionalTimestamp revised_at;
+
+    template <typename PayloadType>
+    auto GetCustomData() const -> PayloadType {
+        return Parse(custom_data, userver::formats::parse::To<PayloadType>());
+    }
 };
 
 }  // namespace paddle::transactions
@@ -397,12 +402,12 @@ Format Serialize(const TransactionTotals& totals, userver::formats::serialize::T
     if (totals.fee) {
         builder["fee"] = std::to_string(*totals.fee);
     } else {
-        builder["fee"] = std::nullopt;
+        builder["fee"] = std::optional<std::int64_t>{};
     }
     if (totals.earnings) {
         builder["earnings"] = std::to_string(*totals.earnings);
     } else {
-        builder["earnings"] = std::nullopt;
+        builder["earnings"] = std::optional<std::int64_t>{};
     }
     builder["currency_code"] = totals.currency_code;
     return builder.ExtractValue();
@@ -436,12 +441,12 @@ Format Serialize(const TransactionTotalsAdjusted& totals, userver::formats::seri
     if (totals.fee) {
         builder["fee"] = std::to_string(*totals.fee);
     } else {
-        builder["fee"] = std::nullopt;
+        builder["fee"] = std::optional<std::int64_t>{};
     }
     if (totals.earnings) {
         builder["earnings"] = std::to_string(*totals.earnings);
     } else {
-        builder["earnings"] = std::nullopt;
+        builder["earnings"] = std::optional<std::int64_t>{};
     }
     builder["currency_code"] = totals.currency_code;
     return builder.ExtractValue();
@@ -479,12 +484,12 @@ Format Serialize(const TransactionPayoutTotals& totals, userver::formats::serial
     if (totals.fee) {
         builder["fee"] = std::to_string(*totals.fee);
     } else {
-        builder["fee"] = std::nullopt;
+        builder["fee"] = std::optional<std::int64_t>{};
     }
     if (totals.earnings) {
         builder["earnings"] = std::to_string(*totals.earnings);
     } else {
-        builder["earnings"] = std::nullopt;
+        builder["earnings"] = std::optional<std::int64_t>{};
     }
     builder["currency_code"] = totals.currency_code;
     return builder.ExtractValue();
@@ -603,8 +608,12 @@ template <typename Value>
 PaymentMethod Parse(const Value& value, userver::formats::parse::To<PaymentMethod>) {
     PaymentMethod payment_method;
     payment_method.type = value["type"].template As<PaymentMethodType>();
-    payment_method.underlying_details = value["underlying_details"].template As<JSON>();
-    payment_method.card = value["card"].template As<money::Card>();
+    if (value.HasMember("underlying_details") && !value["underlying_details"].IsNull()) {
+        payment_method.underlying_details = value["underlying_details"].template As<JSON>();
+    }
+    if (value.HasMember("card") && !value["card"].IsNull()) {
+        payment_method.card = value["card"].template As<money::Card>();
+    }
     return payment_method;
 }
 

@@ -75,7 +75,10 @@ template <typename Value>
 auto Parse(const Value& value, userver::formats::parse::To<Pagination>) -> Pagination {
     Pagination pagination;
     pagination.per_page = value["per_page"].template As<std::int32_t>();
-    pagination.next = value["next"].template As<std::string>();
+    if (value.HasMember("next") && !value["next"].IsNull()) {
+        pagination.next = value["next"].template As<std::string>();
+    }
+
     pagination.has_more = value["has_more"].template As<bool>();
     pagination.estimated_total = value["estimated_total"].template As<std::int32_t>();
     return pagination;

@@ -66,8 +66,57 @@ struct Client::Impl {
         if (pos == std::string::npos) {
             return {std::move(response.data), {}, false};
         }
-        auto next_cursor = response.meta.pagination.next.substr(pos + 6);
+        auto amp_pos = response.meta.pagination.next.find("&", pos + 6);
+        if (amp_pos == std::string::npos) {
+            auto next_cursor = response.meta.pagination.next.substr(pos + 6);
+            return {std::move(response.data), next_cursor, response.meta.pagination.has_more};
+        }
+        auto next_cursor = response.meta.pagination.next.substr(pos + 6, amp_pos - pos - 6);
         return {std::move(response.data), next_cursor, response.meta.pagination.has_more};
+    }
+
+    template <typename T>
+    T Get(std::string_view path, std::string_view operation) const {
+        auto request_path = fmt::format("{}/{}", base_url, path);
+        auto response = http_client.GetHttpClient()
+                            .CreateRequest()
+                            .get(request_path)
+                            .headers({{"Authorization", api_key}, {"Paddle-Api-Version", api_version}})
+                            .timeout(std::chrono::seconds(30))
+                            .perform();
+        ThrowIfNotOk(response, request_path, operation);
+        auto body = response->body();
+        try {
+            auto result = userver::formats::json::FromString(body).template As<T>();
+            return result;
+        } catch (const std::exception& e) {
+            LOG_ERROR() << fmt::format("Failed to parse response for {}: {}\n{}", operation, e.what(), body);
+            throw;
+        }
+    }
+
+    template <typename Result>
+    Result Post(std::string_view path, std::string_view operation) const {
+        auto request_path = fmt::format("{}/{}", base_url, path);
+        auto response = http_client.GetHttpClient()
+                            .CreateRequest()
+                            .post(request_path)
+                            .headers({
+                                {"Authorization", api_key},
+                                {"Paddle-Api-Version", api_version},
+                                {"Content-Type", "application/json"},
+                            })
+                            .timeout(std::chrono::seconds(30))
+                            .perform();
+        ThrowIfNotOk(response, request_path, operation);
+        auto body = response->body();
+        try {
+            auto result = userver::formats::json::FromString(body).template As<Result>();
+            return result;
+        } catch (const std::exception& e) {
+            LOG_ERROR() << fmt::format("Failed to parse response for {}: {}\n{}", operation, e.what(), body);
+            throw;
+        }
     }
 
     template <typename Result, typename Request>
@@ -77,6 +126,31 @@ struct Client::Impl {
         auto response = http_client.GetHttpClient()
                             .CreateRequest()
                             .post(request_path, ToString(request_body))
+                            .headers({
+                                {"Authorization", api_key},
+                                {"Paddle-Api-Version", api_version},
+                                {"Content-Type", "application/json"},
+                            })
+                            .timeout(std::chrono::seconds(30))
+                            .perform();
+        ThrowIfNotOk(response, request_path, operation);
+        auto body = response->body();
+        try {
+            auto result = userver::formats::json::FromString(body).template As<Result>();
+            return result;
+        } catch (const std::exception& e) {
+            LOG_ERROR() << fmt::format("Failed to parse response for {}: {}\n{}", operation, e.what(), body);
+            throw;
+        }
+    }
+
+    template <typename Result, typename Request>
+    Result Patch(std::string_view path, std::string_view operation, const Request& request) const {
+        auto request_body = Serialize(request, userver::formats::serialize::To<JSON>{});
+        auto request_path = fmt::format("{}/{}", base_url, path);
+        auto response = http_client.GetHttpClient()
+                            .CreateRequest()
+                            .patch(request_path, ToString(request_body))
                             .headers({
                                 {"Authorization", api_key},
                                 {"Paddle-Api-Version", api_version},
@@ -150,6 +224,76 @@ struct Client::Impl {
         )
             .data;
     }
+
+    std::vector<customers::Customer> GetAllCustomers() const {
+        return GetAll<customers::Customer>("customers", 200);
+    }
+
+    ResponseWithCursor<customers::Customer> GetCustomers(std::string_view cursor, std::int32_t per_page) const {
+        return GetPaginated<customers::Customer>("customers", cursor, per_page);
+    }
+
+    customers::Customer GetCustomer(const CustomerId& customer_id) const {
+        return Get<SingleObjectResponse<customers::Customer, Meta>>(
+                   fmt::format("customers/{}", customer_id), "get customer"
+        )
+            .data;
+    }
+
+    customers::Customer UpdateCustomer(
+        const CustomerId& customer_id,
+        const customers::CustomerUpdateRequest& customer_update_request
+    ) const {
+        return Patch<SingleObjectResponse<customers::Customer, Meta>>(
+                   fmt::format("customers/{}", customer_id), "update customer", customer_update_request
+        )
+            .data;
+    }
+
+    customers::AuthenticationToken GenerateAuthenticationToken(const CustomerId& customer_id) const {
+        return Post<SingleObjectResponse<customers::AuthenticationToken, Meta>>(
+                   fmt::format("customers/{}/auth-token", customer_id), "generate authentication token"
+        )
+            .data;
+    }
+
+    std::vector<subscriptions::Subscription> GetAllSubscriptions() const {
+        return GetAll<subscriptions::Subscription>("subscriptions", 200);
+    }
+
+    ResponseWithCursor<subscriptions::Subscription> GetSubscriptions(std::string_view cursor, std::int32_t per_page)
+        const {
+        return GetPaginated<subscriptions::Subscription>("subscriptions", cursor, per_page);
+    }
+
+    subscriptions::Subscription ResumeSubscription(const SubscriptionId& subscription_id, EffectiveFrom effective_from)
+        const {
+        return Post<SingleObjectResponse<subscriptions::Subscription, Meta>>(
+                   fmt::format("subscriptions/{}/resume", subscription_id),
+                   "resume subscription",
+                   subscriptions::ChangeSubscriptionRequest{effective_from}
+        )
+            .data;
+    }
+
+    subscriptions::Subscription CancelSubscription(const SubscriptionId& subscription_id, EffectiveFrom effective_from)
+        const {
+        return Post<SingleObjectResponse<subscriptions::Subscription, Meta>>(
+                   fmt::format("subscriptions/{}/cancel", subscription_id),
+                   "cancel subscription",
+                   subscriptions::ChangeSubscriptionRequest{effective_from}
+        )
+            .data;
+    }
+
+    std::vector<transactions::Transaction> GetAllTransactions() const {
+        return GetAll<transactions::Transaction>("transactions", 200);
+    }
+
+    ResponseWithCursor<transactions::Transaction> GetTransactions(std::string_view cursor, std::int32_t per_page)
+        const {
+        return GetPaginated<transactions::Transaction>("transactions", cursor, per_page);
+    }
 };
 
 Client::Client(const userver::components::ComponentConfig& config, const userver::components::ComponentContext& context)
@@ -179,41 +323,95 @@ properties:
     );
 }
 
-std::vector<NotificationSetting> Client::GetAllNotificationSettings() const {
+auto Client::GetAllNotificationSettings() const -> std::vector<NotificationSetting> {
     return impl_->GetAllNotificationSettings();
 }
 
-ResponseWithCursor<NotificationSetting> Client::GetNotificationSettings(std::string_view cursor, std::int32_t per_page)
-    const {
+auto Client::GetNotificationSettings(std::string_view cursor, std::int32_t per_page) const
+    -> ResponseWithCursor<NotificationSetting> {
     return impl_->GetNotificationSettings(cursor, per_page);
 }
 
-std::vector<events::Event<JSON>> Client::GetAllEvents() const {
+auto Client::GetAllEvents() const -> std::vector<events::Event<JSON>> {
     return impl_->GetAllEvents();
 }
 
-ResponseWithCursor<events::Event<JSON>> Client::GetEvents(std::string_view cursor, std::int32_t per_page) const {
+auto Client::GetEvents(std::string_view cursor, std::int32_t per_page) const
+    -> ResponseWithCursor<events::Event<JSON>> {
     return impl_->GetEvents(cursor, per_page);
 }
 
-std::vector<products::JsonProduct> Client::GetAllProducts() const {
+auto Client::GetAllProducts() const -> std::vector<products::JsonProduct> {
     return impl_->GetAllProducts();
 }
 
-ResponseWithCursor<products::JsonProduct> Client::GetProducts(std::string_view cursor, std::int32_t per_page) const {
+auto Client::GetProducts(std::string_view cursor, std::int32_t per_page) const
+    -> ResponseWithCursor<products::JsonProduct> {
     return impl_->GetProducts(cursor, per_page);
 }
 
-std::vector<prices::JsonPrice> Client::GetAllPrices() const {
+auto Client::GetAllPrices() const -> std::vector<prices::JsonPrice> {
     return impl_->GetAllPrices();
 }
 
-ResponseWithCursor<prices::JsonPrice> Client::GetPrices(std::string_view cursor, std::int32_t per_page) const {
+auto Client::GetPrices(std::string_view cursor, std::int32_t per_page) const -> ResponseWithCursor<prices::JsonPrice> {
     return impl_->GetPrices(cursor, per_page);
 }
 
-prices::JsonPricePreview Client::GetPricePreview(const prices::PricePreviewRequest& request) const {
+auto Client::GetPricePreview(const prices::PricePreviewRequest& request) const -> prices::JsonPricePreview {
     return impl_->GetPricePreview(request);
+}
+
+auto Client::GetAllCustomers() const -> std::vector<customers::Customer> {
+    return impl_->GetAllCustomers();
+}
+
+auto Client::GetCustomers(std::string_view cursor, std::int32_t per_page) const
+    -> ResponseWithCursor<customers::Customer> {
+    return impl_->GetCustomers(cursor, per_page);
+}
+
+auto Client::GetCustomer(const CustomerId& customer_id) const -> customers::Customer {
+    return impl_->GetCustomer(customer_id);
+}
+
+auto Client::UpdateCustomer(
+    const CustomerId& customer_id,
+    const customers::CustomerUpdateRequest& customer_update_request
+) const -> customers::Customer {
+    return impl_->UpdateCustomer(customer_id, customer_update_request);
+}
+
+auto Client::GenerateAuthenticationToken(const CustomerId& customer_id) const -> customers::AuthenticationToken {
+    return impl_->GenerateAuthenticationToken(customer_id);
+}
+
+auto Client::GetAllSubscriptions() const -> std::vector<subscriptions::Subscription> {
+    return impl_->GetAllSubscriptions();
+}
+
+auto Client::GetSubscriptions(std::string_view cursor, std::int32_t per_page) const
+    -> ResponseWithCursor<subscriptions::Subscription> {
+    return impl_->GetSubscriptions(cursor, per_page);
+}
+
+auto Client::ResumeSubscription(const SubscriptionId& subscription_id, EffectiveFrom effective_from) const
+    -> subscriptions::Subscription {
+    return impl_->ResumeSubscription(subscription_id, effective_from);
+}
+
+auto Client::CancelSubscription(const SubscriptionId& subscription_id, EffectiveFrom effective_from) const
+    -> subscriptions::Subscription {
+    return impl_->CancelSubscription(subscription_id, effective_from);
+}
+
+auto Client::GetAllTransactions() const -> std::vector<transactions::Transaction> {
+    return impl_->GetAllTransactions();
+}
+
+auto Client::GetTransactions(std::string_view cursor, std::int32_t per_page) const
+    -> ResponseWithCursor<transactions::Transaction> {
+    return impl_->GetTransactions(cursor, per_page);
 }
 
 }  // namespace paddle::components
